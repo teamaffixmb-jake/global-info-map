@@ -149,10 +149,29 @@ export default function Legend({
             </div>
             
             <div style={{ marginBottom: '1rem' }}>
-                <strong style={{ fontSize: '0.875rem' }}>Wind Patterns</strong>
+                <strong style={{ fontSize: '0.875rem' }}>Wind Patterns (Speed)</strong>
                 <div className="legend-item">
-                    <div style={{ fontSize: '1rem' }}>💨</div>
-                    <span>Directional arrows</span>
+                    <div style={{ fontSize: '0.8rem', color: '#8b00ff' }}>➤</div>
+                    <span>40+ mph (Fast)</span>
+                </div>
+                <div className="legend-item">
+                    <div style={{ fontSize: '0.8rem', color: '#c71585' }}>➤</div>
+                    <span>25-39 mph</span>
+                </div>
+                <div className="legend-item">
+                    <div style={{ fontSize: '0.8rem', color: '#ff69b4' }}>➤</div>
+                    <span>15-24 mph</span>
+                </div>
+                <div className="legend-item">
+                    <div style={{ fontSize: '0.8rem', color: '#ffff00' }}>➤</div>
+                    <span>7-14 mph</span>
+                </div>
+                <div className="legend-item">
+                    <div style={{ fontSize: '0.8rem', color: '#00ff00' }}>➤</div>
+                    <span>5-6 mph (Light)</span>
+                </div>
+                <div style={{ fontSize: '0.65rem', marginTop: '0.25rem', color: '#9ca3af' }}>
+                    🌈 Green→Purple gradient. Arrows show direction, sampled every 20° globally (real-time API)
                 </div>
             </div>
             

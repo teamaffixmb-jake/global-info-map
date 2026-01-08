@@ -8,11 +8,11 @@ import {
     fetchISS,
     fetchVolcanic, // ✅ REAL DATA - USGS Volcano Hazards Program API
     fetchHurricanes, // ✅ REAL DATA - NOAA National Hurricane Center API
+    fetchWindPatterns, // ✅ REAL DATA - Open-Meteo API (sparse grid sampling)
     generateSampleHurricanes // For simulated data toggle
     // Simulated data sources (not yet implemented with real APIs):
     // fetchTornadoes, 
     // fetchAurora, 
-    // fetchWindPatterns, 
     // fetchPrecipitation, 
     // fetchRocketLaunches, 
     // fetchConflicts, 
@@ -25,11 +25,11 @@ import {
     issToDataPoint,
     volcanoToDataPoint, // ✅ Real volcanic data converter
     hurricaneToDataPoint, // ✅ Real hurricane data converter
+    windToDataPoint, // ✅ Real wind data converter (sparse grid)
     convertBatch
     // Converters for simulated data (not yet enabled):
     // tornadoToDataPoint,
     // auroraToDataPoint,
-    // windToDataPoint,
     // precipitationToDataPoint,
     // rocketToDataPoint,
     // conflictToDataPoint,
@@ -65,6 +65,7 @@ function App() {
     const [severityThreshold, setSeverityThreshold] = useState<number>(1); // Default: show all (LOW and above)
     const [dataPoints, setDataPoints] = useState<DataPoint[]>([]);
     const [showSimulatedData, setShowSimulatedData] = useState<boolean>(false); // Toggle for sample data
+    const [loadingStatus, setLoadingStatus] = useState<string>(''); // Current loading/rendering status
     
     // Store marker manager instance
     const markerManagerRef = useRef<MarkerManager | null>(null);
@@ -107,24 +108,22 @@ function App() {
 
     const loadData = useCallback(async () => {
         try {
-            // Fetch real data sources
-            // ✅ Earthquakes - USGS Earthquake API
-            // ✅ ISS - WhereTheISS.at API
-            // ✅ Volcanoes - USGS Volcano Hazards Program API (U.S. only)
-            // ✅ Hurricanes - NOAA National Hurricane Center API (Atlantic, E. Pacific, C. Pacific)
-            const [
-                eqResult, 
-                issResult,
-                volcanicResult,
-                hurricaneResult
-            ] = await Promise.all([
-                fetchEarthquakes(),
-                fetchISS(),
-                fetchVolcanic(),
-                fetchHurricanes()
-            ]);
+            // Fetch critical data sources first (fast - show map ASAP)
+            setLoadingStatus('🔍 Fetching earthquake data...');
+            const eqResult = await fetchEarthquakes();
+            
+            setLoadingStatus('🛰️ Fetching ISS position...');
+            const issResult = await fetchISS();
+            
+            setLoadingStatus('🌋 Fetching volcanic activity...');
+            const volcanicResult = await fetchVolcanic();
+            
+            setLoadingStatus('🌀 Fetching hurricane data...');
+            const hurricaneResult = await fetchHurricanes();
 
-            // Convert all raw data to DataPoints (only real data)
+            setLoadingStatus('🔄 Processing data...');
+
+            // Convert critical data to DataPoints
             let allDataPoints: DataPoint[] = [
                 ...convertBatch(eqResult.data, earthquakeToDataPoint),
                 ...(issResult.data ? [issToDataPoint(issResult.data)] : []),
@@ -147,8 +146,10 @@ function App() {
                 console.log('ℹ️  Simulated data toggle OFF - showing only real data');
             }
 
-            // Update state with new data points
+            // Update state with critical data and show the map
             setDataPoints(allDataPoints);
+            
+            setLoadingStatus('🎨 Rendering markers...');
             
             // Process through marker manager if available
             if (markerManagerRef.current) {
@@ -157,8 +158,37 @@ function App() {
 
             updateTimestamp();
             setLoading(false);
+            setLoadingStatus('');
+            
+            // Load wind patterns asynchronously in the background
+            // Note: May take longer if 429 rate limit is hit (1 min wait + retry)
+            (async () => {
+                setLoadingStatus('💨 Fetching wind patterns (may take 10-30s if rate-limited)...');
+                const windResult = await fetchWindPatterns();
+                
+                if (windResult.data.length > 0) {
+                    setLoadingStatus('💨 Rendering wind data...');
+                    const windDataPoints = convertBatch(windResult.data, windToDataPoint);
+                    
+                    setDataPoints(prevPoints => [...prevPoints, ...windDataPoints]);
+                    
+                    if (markerManagerRef.current) {
+                        markerManagerRef.current.processDataPoints(windDataPoints);
+                    }
+                    
+                    console.log(`✅ Successfully loaded ${windDataPoints.length} wind data points`);
+                } else {
+                    console.warn('⚠️ No wind data loaded - API may have failed');
+                }
+                
+                // Clear loading status after wind data is loaded
+                setTimeout(() => setLoadingStatus(''), 1000);
+            })();
+            
         } catch (error) {
             console.error('Error loading data:', error);
+            setLoadingStatus('❌ Error loading data');
+            setTimeout(() => setLoadingStatus(''), 3000);
             setLoading(false);
         }
     }, [showSimulatedData]); // Add showSimulatedData as dependency
@@ -215,6 +245,14 @@ function App() {
                         setMapController={setMapController}
                         markerManagerRef={markerManagerRef}
                     />
+                    
+                    {/* Loading Status Indicator */}
+                    {loadingStatus && (
+                        <div className="loading-status">
+                            {loadingStatus}
+                        </div>
+                    )}
+                    
                     <Legend 
                         counts={counts} 
                         lastUpdate={lastUpdate}

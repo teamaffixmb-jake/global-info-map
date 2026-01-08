@@ -525,10 +525,104 @@ export async function fetchAurora(): Promise<APIResponse<RawAurora[]>> {
 
 export async function fetchWindPatterns(): Promise<APIResponse<RawWind[]>> {
     try {
-        return { success: false, data: generateSampleWindPatterns() };
+        // Very sparse grid (20 degrees) to minimize API calls
+        const gridPoints: Array<{ lat: number, lon: number }> = [];
+        
+        for (let lat = -80; lat <= 80; lat += 20) {
+            for (let lon = -180; lon < 180; lon += 20) {
+                gridPoints.push({ lat, lon });
+            }
+        }
+        
+        console.log(`🌬️ Fetching wind data for ${gridPoints.length} grid points...`);
+        
+        const windData: RawWind[] = [];
+        let rateLimitHit = false;
+        
+        // Fetch with delay between requests
+        for (let i = 0; i < gridPoints.length; i++) {
+            const point = gridPoints[i];
+            
+            try {
+                const response = await fetch(
+                    `https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lon}&current=windspeed_10m,winddirection_10m,windgusts_10m&windspeed_unit=mph`,
+                    { method: 'GET', mode: 'cors' }
+                );
+                
+                // Handle 429 Too Many Requests
+                if (response.status === 429) {
+                    console.warn(`⚠️ Rate limit hit (429) at point ${i + 1}/${gridPoints.length}. Waiting 60 seconds...`);
+                    rateLimitHit = true;
+                    
+                    // Wait 1 minute before retrying
+                    await new Promise(resolve => setTimeout(resolve, 60000));
+                    
+                    // Retry this same point
+                    const retryResponse = await fetch(
+                        `https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lon}&current=windspeed_10m,winddirection_10m,windgusts_10m&windspeed_unit=mph`,
+                        { method: 'GET', mode: 'cors' }
+                    );
+                    
+                    if (!retryResponse.ok) {
+                        console.warn(`Failed retry for ${point.lat},${point.lon}: ${retryResponse.status}`);
+                        continue;
+                    }
+                    
+                    const retryData = await retryResponse.json();
+                    const retryCurrent = retryData.current;
+                    
+                    const windPoint = {
+                        lat: point.lat,
+                        lon: point.lon,
+                        speed: Math.round(retryCurrent.windspeed_10m || 0),
+                        direction: retryCurrent.winddirection_10m || 0,
+                        gusts: Math.round(retryCurrent.windgusts_10m || 0),
+                        time: Date.now()
+                    } as RawWind;
+                    
+                    if (windPoint.speed >= 5) {
+                        windData.push(windPoint);
+                    }
+                    
+                    continue;
+                }
+                
+                if (!response.ok) {
+                    console.warn(`Failed to fetch wind for ${point.lat},${point.lon}: ${response.status}`);
+                    continue;
+                }
+                
+                const data = await response.json();
+                const current = data.current;
+                
+                const windPoint = {
+                    lat: point.lat,
+                    lon: point.lon,
+                    speed: Math.round(current.windspeed_10m || 0),
+                    direction: current.winddirection_10m || 0,
+                    gusts: Math.round(current.windgusts_10m || 0),
+                    time: Date.now()
+                } as RawWind;
+                
+                if (windPoint.speed >= 5) {
+                    windData.push(windPoint);
+                }
+                
+                // Delay between requests to avoid hitting rate limits
+                // Longer delay if we've already hit rate limit once
+                const delay = rateLimitHit ? 200 : 100;
+                await new Promise(resolve => setTimeout(resolve, delay));
+                
+            } catch (error) {
+                console.warn(`Error fetching wind for ${point.lat},${point.lon}:`, error);
+            }
+        }
+        
+        console.log(`✅ Fetched wind data for ${windData.length} grid points globally`);
+        return { success: true, data: windData };
     } catch (error) {
         console.error('Error fetching wind patterns:', error);
-        return { success: false, data: generateSampleWindPatterns() };
+        return { success: false, data: [] };
     }
 }
 

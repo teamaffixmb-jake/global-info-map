@@ -83,10 +83,18 @@ export function getAuroraSize(kpIndex: number): number {
 }
 
 export function getWindColor(speed: number): string {
-    if (speed >= 30) return '#ff0000';
-    if (speed >= 20) return '#ff6600';
-    if (speed >= 15) return '#ffcc00';
-    return '#ffff00';
+    // Green (light wind) to Purple (fast wind) gradient
+    // Speed ranges: 0-50+ mph
+    
+    if (speed >= 50) return '#8b00ff'; // Deep purple (very fast)
+    if (speed >= 40) return '#a020f0'; // Purple
+    if (speed >= 30) return '#c71585'; // Medium violet red
+    if (speed >= 25) return '#da70d6'; // Orchid
+    if (speed >= 20) return '#ff69b4'; // Hot pink
+    if (speed >= 15) return '#ffa500'; // Orange
+    if (speed >= 10) return '#ffff00'; // Yellow
+    if (speed >= 7) return '#9acd32'; // Yellow green
+    return '#00ff00'; // Green (light wind)
 }
 
 export function getPrecipitationColor(intensity: number): string {

@@ -32,3 +32,30 @@ body {
     font-size: 1.5rem;
 }
 
+/* Loading Status Indicator - positioned below zoom controls */
+.loading-status {
+    position: absolute;
+    top: 90px;
+    left: 10px;
+    z-index: 1000;
+    background: rgba(17, 24, 39, 0.95);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    animation: pulse-glow 2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 0 10px rgba(59, 130, 246, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 0 20px rgba(59, 130, 246, 0.6);
+    }
+}
+

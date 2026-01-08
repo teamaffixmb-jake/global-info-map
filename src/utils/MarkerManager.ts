@@ -407,21 +407,30 @@ export class MarkerManager {
     /**
      * Create wind marker
      */
-    private createWindMarker(dataPoint: DataPoint): L.Marker {
+    private createWindMarker(dataPoint: DataPoint): L.Marker | null {
         const metadata = dataPoint.metadata as any;
+        
+        // Skip very low wind speeds to avoid cluttering the map
+        if (metadata.speed < 5) {
+            return null;
+        }
+        
         const color = getWindColor(metadata.speed);
         const rotation = metadata.direction;
         
+        // Very lightweight: small, transparent arrow
         const windIcon = L.divIcon({
             className: 'wind-marker',
             html: `<div style="
-                font-size: 20px;
+                font-size: 10px;
                 color: ${color};
+                opacity: 0.35;
                 transform: rotate(${rotation}deg);
-                text-shadow: 0 0 3px rgba(0,0,0,0.5);
+                text-shadow: 0 0 2px rgba(0,0,0,0.3);
+                pointer-events: auto;
             ">➤</div>`,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
+            iconSize: [10, 10],
+            iconAnchor: [5, 5]
         });
         
         const marker = L.marker([dataPoint.lat, dataPoint.lon], { icon: windIcon });
