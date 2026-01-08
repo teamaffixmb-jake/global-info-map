@@ -5,9 +5,16 @@ import { DataSourceType } from '../models/DataPoint';
 interface LegendProps {
     counts?: Record<string, number>;
     lastUpdate?: string;
+    showSimulatedData?: boolean;
+    onToggleSimulatedData?: (value: boolean) => void;
 }
 
-export default function Legend({ counts = {}, lastUpdate = '' }: LegendProps) {
+export default function Legend({ 
+    counts = {}, 
+    lastUpdate = '',
+    showSimulatedData = false,
+    onToggleSimulatedData
+}: LegendProps) {
     const [isMinimized, setIsMinimized] = useState(false);
 
     return (
@@ -19,6 +26,33 @@ export default function Legend({ counts = {}, lastUpdate = '' }: LegendProps) {
                 </button>
             </div>
             <div className="legend-content">
+            
+            {/* Simulated Data Toggle */}
+            {onToggleSimulatedData && (
+                <div style={{ marginBottom: '1rem', padding: '0.5rem', background: '#374151', borderRadius: '0.25rem', borderLeft: '3px solid #3b82f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                            <strong style={{ fontSize: '0.75rem', color: '#3b82f6' }}>🧪 Simulated Data</strong>
+                            <div style={{ fontSize: '0.65rem', marginTop: '0.25rem', color: '#9ca3af' }}>
+                                Show sample data when real data unavailable
+                            </div>
+                        </div>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={showSimulatedData}
+                                onChange={(e) => onToggleSimulatedData(e.target.checked)}
+                                style={{
+                                    width: '16px',
+                                    height: '16px',
+                                    cursor: 'pointer',
+                                    accentColor: '#3b82f6'
+                                }}
+                            />
+                        </label>
+                    </div>
+                </div>
+            )}
             
             <div style={{ marginBottom: '1rem', padding: '0.5rem', background: '#1f2937', borderRadius: '0.25rem', borderLeft: '3px solid #10b981' }}>
                 <strong style={{ fontSize: '0.75rem', color: '#10b981' }}>📊 Active Data Points</strong>

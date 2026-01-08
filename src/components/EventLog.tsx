@@ -20,13 +20,15 @@ interface EventLogProps {
     onEventClick?: (event: EventData) => void;
     severityThreshold: number;
     onSeverityChange: (threshold: number) => void;
+    onClearEvents?: () => void;
 }
 
 export default function EventLog({ 
     events, 
     onEventClick, 
     severityThreshold, 
-    onSeverityChange 
+    onSeverityChange,
+    onClearEvents
 }: EventLogProps) {
     const [isMinimized, setIsMinimized] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -56,9 +58,26 @@ export default function EventLog({
         <div id="event-log" className={isMinimized ? 'show minimized' : 'show'}>
             <div className="event-log-header" onClick={() => setIsMinimized(!isMinimized)}>
                 <h3>📋 Event Log ({events.length})</h3>
-                <button className="toggle-button" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}>
-                    {isMinimized ? '▲' : '▼'}
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {onClearEvents && events.length > 0 && (
+                        <button 
+                            className="toggle-button"
+                            onClick={(e) => { 
+                                e.stopPropagation(); 
+                                if (window.confirm('Clear all events from the log?')) {
+                                    onClearEvents();
+                                }
+                            }}
+                            style={{ background: '#ef4444' }}
+                            title="Clear all events"
+                        >
+                            🗑️
+                        </button>
+                    )}
+                    <button className="toggle-button" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}>
+                        {isMinimized ? '▲' : '▼'}
+                    </button>
+                </div>
             </div>
             {!isMinimized && (
                 <div className="severity-filter" onClick={(e) => e.stopPropagation()}>

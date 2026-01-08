@@ -455,9 +455,51 @@ export async function fetchVolcanic(): Promise<APIResponse<RawVolcano[]>> {
 
 export async function fetchHurricanes(): Promise<APIResponse<RawHurricane[]>> {
     try {
-        return { success: false, data: generateSampleHurricanes() };
+        // NOAA National Hurricane Center API - provides active tropical cyclones
+        // Covers Atlantic, Eastern Pacific, and Central Pacific basins
+        const response = await fetch('https://www.nhc.noaa.gov/CurrentStorms.json', {
+            method: 'GET',
+            mode: 'cors'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Transform NOAA format to our RawHurricane format
+        const hurricanes: RawHurricane[] = (data.activeStorms || []).map((storm: any) => {
+            // NOAA provides classification (e.g., "Hurricane", "Tropical Storm")
+            // We'll estimate category based on wind speed if not provided
+            const windSpeed = parseInt(storm.intensity) || 0;
+            let category = 0;
+            if (windSpeed >= 157) category = 5;
+            else if (windSpeed >= 130) category = 4;
+            else if (windSpeed >= 111) category = 3;
+            else if (windSpeed >= 96) category = 2;
+            else if (windSpeed >= 74) category = 1;
+            
+            return {
+                id: storm.id || storm.stormId,
+                lat: parseFloat(storm.lat || storm.latitude),
+                lon: parseFloat(storm.lon || storm.longitude),
+                name: storm.name || storm.stormName || 'Unnamed Storm',
+                category: category,
+                windSpeed: windSpeed,
+                pressure: parseInt(storm.pressure) || 1000,
+                direction: storm.movement || storm.direction || 'N',
+                time: Date.now()
+            };
+        }).filter((h: RawHurricane) => h.lat && !isNaN(h.lat) && h.lon && !isNaN(h.lon));
+        
+        console.log(`✅ Fetched ${hurricanes.length} active hurricanes from NOAA NHC API`);
+        
+        // Return actual data (empty array if no active storms)
+        // Sample data can be enabled via the "Simulated Data" toggle in the Legend
+        return { success: true, data: hurricanes };
     } catch (error) {
-        console.error('Error fetching hurricanes:', error);
+        console.error('Error fetching hurricanes from NOAA, falling back to sample data:', error);
         return { success: false, data: generateSampleHurricanes() };
     }
 }

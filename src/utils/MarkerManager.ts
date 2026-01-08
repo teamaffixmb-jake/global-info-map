@@ -312,28 +312,40 @@ export class MarkerManager {
     /**
      * Create hurricane marker
      */
-    private createHurricaneMarker(dataPoint: DataPoint): L.CircleMarker {
+    private createHurricaneMarker(dataPoint: DataPoint): L.Marker {
         const metadata = dataPoint.metadata as any;
-        const size = getHurricaneSize(metadata.category);
+        const size = getHurricaneSize(metadata.category) * 2; // Make it bigger for visibility
         const color = getHurricaneColor(metadata.category);
         
-        const circle = L.circleMarker([dataPoint.lat, dataPoint.lon], {
-            radius: size,
-            fillColor: color,
-            color: '#fff',
-            weight: 2,
-            opacity: 0.9,
-            fillOpacity: 0.7
+        // Create a spinning hurricane icon marker instead of a circle
+        const hurricaneIcon = L.divIcon({
+            className: 'hurricane-marker',
+            html: `<div style="
+                font-size: ${size}px;
+                color: ${color};
+                text-shadow: 0 0 8px rgba(0,0,0,0.8), 0 0 15px ${color};
+                animation: spin 3s linear infinite;
+                filter: drop-shadow(0 0 5px ${color});
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            ">${dataPoint.emoji}</div>`,
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2]
         });
         
-        circle.bindPopup(`
-            <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
+        const marker = L.marker([dataPoint.lat, dataPoint.lon], { icon: hurricaneIcon });
+        
+        const ageText = dataPoint.isNew() ? ' 🆕 VERY RECENT!' : '';
+        
+        marker.bindPopup(`
+            <strong>${dataPoint.emoji} ${dataPoint.title}${ageText}</strong><br>
             ${dataPoint.description}<br>
             Pressure: ${metadata.pressure}mb<br>
             Direction: ${metadata.direction}
         `);
         
-        return circle;
+        return marker;
     }
 
     /**

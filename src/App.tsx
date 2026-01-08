@@ -6,9 +6,10 @@ import EventLog from './components/EventLog';
 import { 
     fetchEarthquakes, 
     fetchISS,
-    fetchVolcanic // ✅ REAL DATA - USGS Volcano Hazards Program API
+    fetchVolcanic, // ✅ REAL DATA - USGS Volcano Hazards Program API
+    fetchHurricanes, // ✅ REAL DATA - NOAA National Hurricane Center API
+    generateSampleHurricanes // For simulated data toggle
     // Simulated data sources (not yet implemented with real APIs):
-    // fetchHurricanes, 
     // fetchTornadoes, 
     // fetchAurora, 
     // fetchWindPatterns, 
@@ -23,9 +24,9 @@ import {
     earthquakeToDataPoint,
     issToDataPoint,
     volcanoToDataPoint, // ✅ Real volcanic data converter
+    hurricaneToDataPoint, // ✅ Real hurricane data converter
     convertBatch
     // Converters for simulated data (not yet enabled):
-    // hurricaneToDataPoint,
     // tornadoToDataPoint,
     // auroraToDataPoint,
     // windToDataPoint,
@@ -63,6 +64,7 @@ function App() {
     const [mapController, setMapController] = useState<MapController | null>(null);
     const [severityThreshold, setSeverityThreshold] = useState<number>(1); // Default: show all (LOW and above)
     const [dataPoints, setDataPoints] = useState<DataPoint[]>([]);
+    const [showSimulatedData, setShowSimulatedData] = useState<boolean>(false); // Toggle for sample data
     
     // Store marker manager instance
     const markerManagerRef = useRef<MarkerManager | null>(null);
@@ -108,23 +110,40 @@ function App() {
             // Fetch real data sources
             // ✅ Earthquakes - USGS Earthquake API
             // ✅ ISS - WhereTheISS.at API
-            // ✅ Volcanoes - USGS Volcano Hazards Program API
+            // ✅ Volcanoes - USGS Volcano Hazards Program API (U.S. only)
+            // ✅ Hurricanes - NOAA National Hurricane Center API (Atlantic, E. Pacific, C. Pacific)
             const [
                 eqResult, 
                 issResult,
-                volcanicResult
+                volcanicResult,
+                hurricaneResult
             ] = await Promise.all([
                 fetchEarthquakes(),
                 fetchISS(),
-                fetchVolcanic()
+                fetchVolcanic(),
+                fetchHurricanes()
             ]);
 
             // Convert all raw data to DataPoints (only real data)
-            const allDataPoints: DataPoint[] = [
+            let allDataPoints: DataPoint[] = [
                 ...convertBatch(eqResult.data, earthquakeToDataPoint),
                 ...(issResult.data ? [issToDataPoint(issResult.data)] : []),
-                ...convertBatch(volcanicResult.data, volcanoToDataPoint)
+                ...convertBatch(volcanicResult.data, volcanoToDataPoint),
+                ...convertBatch(hurricaneResult.data, hurricaneToDataPoint)
             ];
+            
+            // Add simulated data if toggle is enabled and no real data exists
+            if (showSimulatedData) {
+                // Add sample hurricanes if no real hurricanes exist
+                if (hurricaneResult.data.length === 0) {
+                    const sampleHurricanes = generateSampleHurricanes();
+                    allDataPoints = [
+                        ...allDataPoints,
+                        ...convertBatch(sampleHurricanes, hurricaneToDataPoint)
+                    ];
+                    console.log('🧪 Added sample hurricane data (toggle enabled)');
+                }
+            }
 
             // Update state with new data points
             setDataPoints(allDataPoints);
@@ -165,6 +184,17 @@ function App() {
         return () => clearInterval(interval);
     }, []);
 
+    // Reload data when simulated data toggle changes
+    useEffect(() => {
+        if (!loading) {
+            // Clear existing markers before reloading
+            if (markerManagerRef.current) {
+                markerManagerRef.current.clear();
+            }
+            loadData();
+        }
+    }, [showSimulatedData]);
+
     // Calculate counts by type
     const getCountsByType = (): Record<string, number> => {
         const counts: Record<string, number> = {};
@@ -194,12 +224,18 @@ function App() {
                         setMapController={setMapController}
                         markerManagerRef={markerManagerRef}
                     />
-                    <Legend counts={counts} lastUpdate={lastUpdate} />
+                    <Legend 
+                        counts={counts} 
+                        lastUpdate={lastUpdate}
+                        showSimulatedData={showSimulatedData}
+                        onToggleSimulatedData={setShowSimulatedData}
+                    />
                     <EventLog 
                         events={events} 
                         onEventClick={handleEventClick}
                         severityThreshold={severityThreshold}
                         onSeverityChange={setSeverityThreshold}
+                        onClearEvents={() => setEvents([])}
                     />
                 </>
             )}
