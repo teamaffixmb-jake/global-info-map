@@ -663,7 +663,16 @@ export class MarkerManager {
         this.markers.clear();
         this.loggedEventIds.clear();
         
-        // Clear streamlines
+        // Clear streamlines and their arrow markers
+        const oldArrowMarkers = (this.streamlines as any)._arrowMarkers;
+        if (oldArrowMarkers && Array.isArray(oldArrowMarkers)) {
+            oldArrowMarkers.forEach(marker => {
+                if (this.map.hasLayer(marker)) {
+                    this.map.removeLayer(marker);
+                }
+            });
+        }
+        
         this.streamlines.forEach(line => {
             if (this.map.hasLayer(line)) {
                 this.map.removeLayer(line);
@@ -674,11 +683,86 @@ export class MarkerManager {
     }
 
     /**
+     * Split a streamline into multiple segments at dateline crossings
+     * Prevents horizontal artifacts when streamlines wrap around the map
+     */
+    private splitStreamlineAtDateline(points: Array<{ lat: number; lon: number; speed: number }>): Array<Array<{ lat: number; lon: number; speed: number }>> {
+        const segments: Array<Array<{ lat: number; lon: number; speed: number }>> = [];
+        let currentSegment: Array<{ lat: number; lon: number; speed: number }> = [];
+        
+        for (let i = 0; i < points.length; i++) {
+            currentSegment.push(points[i]);
+            
+            // Check if next point crosses dateline (large longitude jump)
+            if (i < points.length - 1) {
+                const lonJump = Math.abs(points[i + 1].lon - points[i].lon);
+                
+                if (lonJump > 180) {
+                    // Dateline crossing detected - finish current segment
+                    if (currentSegment.length >= 3) {
+                        segments.push(currentSegment);
+                    }
+                    // Start new segment
+                    currentSegment = [];
+                }
+            }
+        }
+        
+        // Add final segment
+        if (currentSegment.length >= 3) {
+            segments.push(currentSegment);
+        }
+        
+        // If no splits occurred, return original as single segment
+        return segments.length > 0 ? segments : [points];
+    }
+
+    /**
+     * Check if a streamline is valid (not degenerate)
+     * Filters out straight horizontal/vertical artifacts
+     */
+    private isValidStreamline(streamline: { points: Array<{ lat: number; lon: number; speed: number }>; avgSpeed: number }): boolean {
+        const points = streamline.points;
+        
+        // Basic quality checks only
+        // Reject very low wind speeds
+        if (streamline.avgSpeed < 8) {
+            return false;
+        }
+        
+        // Calculate total distance traveled
+        let totalDistance = 0;
+        for (let i = 1; i < points.length; i++) {
+            const dLat = points[i].lat - points[i - 1].lat;
+            const dLon = points[i].lon - points[i - 1].lon;
+            // Handle dateline crossings in distance calculation
+            const adjustedDLon = Math.abs(dLon) > 180 ? 360 - Math.abs(dLon) : dLon;
+            totalDistance += Math.sqrt(dLat * dLat + adjustedDLon * adjustedDLon);
+        }
+        
+        // Reject very short streamlines
+        if (totalDistance < 3) {
+            return false;
+        }
+        
+        return true;
+    }
+
+    /**
      * Render wind streamlines instead of individual markers
      * This creates flowing curves that visualize wind patterns
      */
     renderWindStreamlines(windData: RawWind[], setLoadingMessage?: (msg: string) => void): void {
-        // Clear existing streamlines
+        // Clear existing streamlines and arrow markers
+        const oldArrowMarkers = (this.streamlines as any)._arrowMarkers;
+        if (oldArrowMarkers && Array.isArray(oldArrowMarkers)) {
+            oldArrowMarkers.forEach(marker => {
+                if (this.map.hasLayer(marker)) {
+                    this.map.removeLayer(marker);
+                }
+            });
+        }
+        
         this.streamlines.forEach(line => {
             if (this.map.hasLayer(line)) {
                 this.map.removeLayer(line);
@@ -700,10 +784,17 @@ export class MarkerManager {
         
         console.log(`🌬️ Generating streamlines from ${windData.length} grid points...`);
         
-        // Generate seed points (more sparse than the grid to avoid overcrowding)
-        const seedPoints = generateSeedPoints(30, 8); // 30° spacing with 8° jitter
+        // Use all wind data points as seed points with jitter to avoid grid artifacts
+        const seedPoints = windData
+            .filter(point => point.speed >= 7) // Only start from points with decent wind
+            .map(point => ({
+                lat: point.lat + (Math.random() - 0.5) * 2, // Small jitter
+                lon: point.lon + (Math.random() - 0.5) * 2
+            }));
         
         let streamlineCount = 0;
+        let rejectedCount = 0;
+        const arrowMarkers: L.Marker[] = []; // Track arrow markers for cleanup
         
         // Trace streamlines from each seed point
         for (const seed of seedPoints) {
@@ -711,42 +802,101 @@ export class MarkerManager {
                 seed.lat,
                 seed.lon,
                 windData,
-                40,   // max steps
-                2.5   // step size in degrees
+                120,  // max steps (increased for smoother lines)
+                0.6   // step size in degrees (reduced for finer sampling)
             );
             
-            if (streamline && streamline.points.length >= 8) {
-                // Convert streamline points to Leaflet lat/lng array
-                const latLngs: L.LatLngExpression[] = streamline.points.map(p => [p.lat, p.lon]);
+            if (streamline && streamline.points.length >= 20) {
+                // Quality check: filter out degenerate streamlines
+                if (!this.isValidStreamline(streamline)) {
+                    rejectedCount++;
+                    continue;
+                }
+                
+                // Split streamline at dateline crossings to avoid horizontal artifacts
+                const segments = this.splitStreamlineAtDateline(streamline.points);
                 
                 // Create polyline with color based on average speed
                 const color = getStreamlineColor(streamline.avgSpeed);
                 const opacity = getWindOpacity(streamline.avgSpeed);
                 const weight = Math.min(2 + streamline.avgSpeed / 20, 4); // Thicker for stronger winds
                 
-                const polyline = L.polyline(latLngs, {
-                    color: color,
-                    opacity: opacity,
-                    weight: weight,
-                    smoothFactor: 2.0, // Smooth the line
-                    className: 'wind-streamline'
-                });
+                // Render each segment separately
+                for (const segment of segments) {
+                    if (segment.length < 5) continue; // Skip very short segments
+                    
+                    const latLngs: L.LatLngExpression[] = segment.map(p => [p.lat, p.lon]);
+                    
+                    const polyline = L.polyline(latLngs, {
+                        color: color,
+                        opacity: opacity,
+                        weight: weight,
+                        smoothFactor: 3.0, // Higher smoothing for elegant curves
+                        className: 'wind-streamline'
+                    });
+                    
+                    // Add popup with wind info (only to first segment)
+                    if (segments.indexOf(segment) === 0) {
+                        const midPoint = segment[Math.floor(segment.length / 2)];
+                        polyline.bindPopup(`
+                            <strong>🌬️ Wind Flow</strong><br>
+                            Avg Speed: ${Math.round(streamline.avgSpeed)} mph<br>
+                            Coordinates: ${midPoint.lat.toFixed(1)}°, ${midPoint.lon.toFixed(1)}°
+                        `);
+                    }
+                    
+                    polyline.addTo(this.map);
+                    this.streamlines.push(polyline);
+                }
                 
-                // Add popup with wind info
-                const midPoint = streamline.points[Math.floor(streamline.points.length / 2)];
-                polyline.bindPopup(`
-                    <strong>🌬️ Wind Flow</strong><br>
-                    Avg Speed: ${Math.round(streamline.avgSpeed)} mph<br>
-                    Coordinates: ${midPoint.lat.toFixed(1)}°, ${midPoint.lon.toFixed(1)}°
-                `);
+                // Add directional arrows along the streamline
+                // Place arrows at regular intervals (every 8-10 points)
+                const arrowInterval = 10;
+                for (let i = arrowInterval; i < streamline.points.length - 5; i += arrowInterval) {
+                    const p1 = streamline.points[i - 1];
+                    const p2 = streamline.points[i];
+                    
+                    // Skip arrows if there's a dateline crossing
+                    const lonJump = Math.abs(p2.lon - p1.lon);
+                    if (lonJump > 180) continue;
+                    
+                    // Calculate direction angle from p1 to p2
+                    const dLat = p2.lat - p1.lat;
+                    const dLon = p2.lon - p1.lon;
+                    const angle = Math.atan2(dLon, dLat) * 180 / Math.PI;
+                    
+                    // Create small arrow marker
+                    const arrowIcon = L.divIcon({
+                        className: 'streamline-arrow',
+                        html: `<div style="
+                            color: ${color};
+                            opacity: ${opacity * 0.8};
+                            transform: rotate(${angle}deg);
+                            font-size: 12px;
+                            line-height: 1;
+                            pointer-events: none;
+                        ">▲</div>`,
+                        iconSize: [12, 12],
+                        iconAnchor: [6, 6]
+                    });
+                    
+                    const arrowMarker = L.marker([p2.lat, p2.lon], { 
+                        icon: arrowIcon,
+                        interactive: false // Don't interfere with clicks
+                    });
+                    
+                    arrowMarker.addTo(this.map);
+                    arrowMarkers.push(arrowMarker);
+                }
                 
-                polyline.addTo(this.map);
-                this.streamlines.push(polyline);
                 streamlineCount++;
             }
         }
         
-        console.log(`✅ Rendered ${streamlineCount} wind streamlines`);
+        // Store arrow markers so they can be cleaned up later
+        (this.streamlines as any)._arrowMarkers = arrowMarkers;
+        
+        console.log(`✅ Rendered ${streamlineCount} wind streamlines (${rejectedCount} rejected as artifacts)`);
         
         if (setLoadingMessage) {
             setLoadingMessage('');

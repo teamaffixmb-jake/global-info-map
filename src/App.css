@@ -104,3 +104,12 @@ body {
     filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
 }
 
+/* Streamline Direction Arrows */
+.streamline-arrow {
+    pointer-events: none !important;
+    /* Lightweight rendering */
+    will-change: transform;
+    /* Subtle text shadow for visibility */
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+}
+

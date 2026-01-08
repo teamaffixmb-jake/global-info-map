@@ -524,7 +524,10 @@ export async function fetchAurora(): Promise<APIResponse<RawAurora[]>> {
     }
 }
 
-export async function fetchWindPatterns(onRateLimitCallback?: () => void): Promise<APIResponse<RawWind[]>> {
+export async function fetchWindPatterns(
+    onRateLimitCallback?: () => void,
+    onProgressCallback?: (percentage: number) => void
+): Promise<APIResponse<RawWind[]>> {
     try {
         // Very sparse grid (20 degrees) to minimize API calls
         const gridPoints: Array<{ lat: number, lon: number }> = [];
@@ -543,6 +546,12 @@ export async function fetchWindPatterns(onRateLimitCallback?: () => void): Promi
         // Fetch with delay between requests
         for (let i = 0; i < gridPoints.length; i++) {
             const point = gridPoints[i];
+            
+            // Report progress
+            const percentage = Math.round(((i + 1) / gridPoints.length) * 100);
+            if (onProgressCallback) {
+                onProgressCallback(percentage);
+            }
             
             try {
                 const response = await fetch(

@@ -106,10 +106,12 @@ export function traceStreamline(
         totalSpeed += wind.speed;
 
         // RK2 integration for smoother curves
+        // Use fixed step size in degrees for consistent spacing
+        
         // Step 1: Evaluate at current position
         const dir1 = wind.direction * Math.PI / 180;
-        const dLat1 = Math.cos(dir1) * stepSize / wind.speed * 5;
-        const dLon1 = Math.sin(dir1) * stepSize / wind.speed * 5;
+        const dLat1 = Math.cos(dir1) * stepSize;
+        const dLon1 = Math.sin(dir1) * stepSize;
 
         // Step 2: Evaluate at midpoint
         const midLat = lat + dLat1 / 2;
@@ -121,10 +123,10 @@ export function traceStreamline(
         }
 
         const dir2 = midWind.direction * Math.PI / 180;
-        const dLat2 = Math.cos(dir2) * stepSize / midWind.speed * 5;
-        const dLon2 = Math.sin(dir2) * stepSize / midWind.speed * 5;
+        const dLat2 = Math.cos(dir2) * stepSize;
+        const dLon2 = Math.sin(dir2) * stepSize;
 
-        // Update position using midpoint derivative
+        // Update position using midpoint derivative (RK2)
         lat += dLat2;
         lon += dLon2;
 

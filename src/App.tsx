@@ -70,6 +70,9 @@ function App() {
     
     // Store marker manager instance
     const markerManagerRef = useRef<MarkerManager | null>(null);
+    
+    // Track if wind fetch is in progress to prevent concurrent fetches
+    const windFetchInProgressRef = useRef<boolean>(false);
 
     const addEvent = useCallback((
         type: string, 
@@ -163,34 +166,52 @@ function App() {
             
             // Load wind patterns asynchronously in the background
             (async () => {
-                setLoadingStatus('💨 Fetching wind patterns...');
-                
-                const windResult = await fetchWindPatterns(() => {
-                    // Callback when rate limit is hit (called once, then fetch stops)
-                    setWindRateLimited(true);
-                    
-                    // Auto-hide after 5 seconds
-                    setTimeout(() => setWindRateLimited(false), 5000);
-                });
-                
-                if (windResult.data.length > 0) {
-                    setLoadingStatus('💨 Generating wind streamlines...');
-                    
-                    // Render wind as streamlines instead of individual markers
-                    if (markerManagerRef.current) {
-                        markerManagerRef.current.renderWindStreamlines(
-                            windResult.data,
-                            setLoadingStatus
-                        );
-                    }
-                    
-                    console.log(`✅ Successfully loaded and rendered wind streamlines`);
-                } else {
-                    console.warn('⚠️ No wind data loaded - API may have failed');
+                // Prevent concurrent wind fetches
+                if (windFetchInProgressRef.current) {
+                    console.log('⚠️ Wind fetch already in progress, skipping...');
+                    return;
                 }
                 
-                // Clear loading status after wind data is loaded
-                setTimeout(() => setLoadingStatus(''), 1000);
+                windFetchInProgressRef.current = true;
+                setLoadingStatus('💨 Fetching wind patterns: 0%');
+                
+                try {
+                    const windResult = await fetchWindPatterns(
+                        () => {
+                            // Callback when rate limit is hit (called once, then fetch stops)
+                            setWindRateLimited(true);
+                            
+                            // Auto-hide after 5 seconds
+                            setTimeout(() => setWindRateLimited(false), 5000);
+                        },
+                        (percentage: number) => {
+                            // Progress callback - show percentage
+                            setLoadingStatus(`💨 Fetching wind data: ${percentage}%`);
+                        }
+                    );
+                    
+                    if (windResult.data.length > 0) {
+                        setLoadingStatus('💨 Generating wind streamlines...');
+                        
+                        // Render wind as streamlines instead of individual markers
+                        if (markerManagerRef.current) {
+                            markerManagerRef.current.renderWindStreamlines(
+                                windResult.data,
+                                setLoadingStatus
+                            );
+                        }
+                        
+                        console.log(`✅ Successfully loaded and rendered wind streamlines`);
+                    } else {
+                        console.warn('⚠️ No wind data loaded - API may have failed');
+                    }
+                } finally {
+                    // Always release the lock, even if there was an error
+                    windFetchInProgressRef.current = false;
+                    
+                    // Clear loading status after wind data is loaded
+                    setTimeout(() => setLoadingStatus(''), 1000);
+                }
             })();
             
         } catch (error) {
