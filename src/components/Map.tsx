@@ -1,12 +1,31 @@
-import { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
+import { useEffect, useRef, useState, MutableRefObject } from 'react';
+import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './Map.css';
-import { MarkerManager } from '../utils/MarkerManager';
+import { MarkerManager, AddEventCallback } from '../utils/MarkerManager';
+import { DataPoint } from '../models/DataPoint';
 
-export default function Map({ dataPoints, addEvent, severityThreshold, setMapController, markerManagerRef }) {
-    const mapRef = useRef(null);
-    const mapInstanceRef = useRef(null);
+interface MapController {
+    zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => void;
+}
+
+interface MapProps {
+    dataPoints: DataPoint[];
+    addEvent: AddEventCallback;
+    severityThreshold: number;
+    setMapController: (controller: MapController) => void;
+    markerManagerRef: MutableRefObject<MarkerManager | null>;
+}
+
+export default function Map({ 
+    dataPoints, 
+    addEvent, 
+    severityThreshold, 
+    setMapController, 
+    markerManagerRef 
+}: MapProps) {
+    const mapRef = useRef<HTMLDivElement>(null);
+    const mapInstanceRef = useRef<L.Map | null>(null);
     const [mapReady, setMapReady] = useState(false);
 
     // Initialize map once (runs only on mount)
@@ -48,8 +67,8 @@ export default function Map({ dataPoints, addEvent, severityThreshold, setMapCon
     // Update marker manager's callbacks when they change
     useEffect(() => {
         if (markerManagerRef.current) {
-            markerManagerRef.current.addEventCallback = addEvent;
-            markerManagerRef.current.severityThreshold = severityThreshold;
+            markerManagerRef.current.updateAddEvent(addEvent);
+            markerManagerRef.current.setSeverityThreshold(severityThreshold);
         }
     }, [addEvent, severityThreshold, markerManagerRef]);
 
@@ -57,7 +76,7 @@ export default function Map({ dataPoints, addEvent, severityThreshold, setMapCon
     useEffect(() => {
         if (mapReady && mapInstanceRef.current && setMapController) {
             setMapController({
-                zoomTo: (lat, lon, data) => {
+                zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => {
                     if (mapInstanceRef.current) {
                         mapInstanceRef.current.setView([lat, lon], 8, {
                             animate: true,
@@ -67,8 +86,8 @@ export default function Map({ dataPoints, addEvent, severityThreshold, setMapCon
                         // Find and open the marker's popup
                         if (data && data.markerId && markerManagerRef.current) {
                             setTimeout(() => {
-                                const markerData = markerManagerRef.current.getMarker(data.markerId);
-                                if (markerData && markerData.marker.getPopup) {
+                                const markerData = markerManagerRef.current?.getMarker(data.markerId!);
+                                if (markerData) {
                                     markerData.marker.openPopup();
                                 }
                             }, 1000);
@@ -88,3 +107,4 @@ export default function Map({ dataPoints, addEvent, severityThreshold, setMapCon
 
     return <div id="map" ref={mapRef}></div>;
 }
+

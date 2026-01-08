@@ -1,5 +1,16 @@
-export function animateCircleBounce(circle, baseRadius) {
-    const bounces = [
+/**
+ * Animation functions for map markers
+ */
+
+import * as L from 'leaflet';
+
+interface Bounce {
+    radius: number;
+    duration: number;
+}
+
+export function animateCircleBounce(circle: L.CircleMarker, baseRadius: number): void {
+    const bounces: Bounce[] = [
         {radius: baseRadius * 1.5, duration: 250},
         {radius: baseRadius, duration: 250},
         {radius: baseRadius * 1.3, duration: 200},
@@ -19,7 +30,7 @@ export function animateCircleBounce(circle, baseRadius) {
     nextBounce();
 }
 
-export function animateCirclePulse(circle, baseRadius) {
+export function animateCirclePulse(circle: L.CircleMarker & { _pulseInterval?: NodeJS.Timeout }, baseRadius: number): NodeJS.Timeout {
     let growing = true;
     let currentRadius = baseRadius;
     

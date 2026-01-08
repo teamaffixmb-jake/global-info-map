@@ -34,25 +34,53 @@ import {
     diseaseToDataPoint,
     convertBatch
 } from './utils/converters';
+import { DataPoint } from './models/DataPoint';
+import { MarkerManager } from './utils/MarkerManager';
+
+interface MapController {
+    zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => void;
+}
+
+interface EventData {
+    id: string;
+    type: string;
+    emoji: string;
+    title: string;
+    message: string;
+    timestamp: number;
+    lat?: number;
+    lon?: number;
+    data?: { markerId?: string; [key: string]: any };
+    severity: number;
+}
 
 function App() {
-    const [lastUpdate, setLastUpdate] = useState('');
-    const [loading, setLoading] = useState(true);
-    const [events, setEvents] = useState([]);
-    const [mapController, setMapController] = useState(null);
-    const [severityThreshold, setSeverityThreshold] = useState(1); // Default: show all (LOW and above)
-    const [dataPoints, setDataPoints] = useState([]);
+    const [lastUpdate, setLastUpdate] = useState<string>('');
+    const [loading, setLoading] = useState<boolean>(true);
+    const [events, setEvents] = useState<EventData[]>([]);
+    const [mapController, setMapController] = useState<MapController | null>(null);
+    const [severityThreshold, setSeverityThreshold] = useState<number>(1); // Default: show all (LOW and above)
+    const [dataPoints, setDataPoints] = useState<DataPoint[]>([]);
     
     // Store marker manager instance
-    const markerManagerRef = useRef(null);
+    const markerManagerRef = useRef<MarkerManager | null>(null);
 
-    const addEvent = useCallback((type, emoji, title, message, lat, lon, data, severity) => {
+    const addEvent = useCallback((
+        type: string, 
+        emoji: string, 
+        title: string, 
+        message: string, 
+        lat: number, 
+        lon: number, 
+        data: { markerId?: string; [key: string]: any }, 
+        severity: number
+    ) => {
         // Only add event if severity meets or exceeds threshold
         if (severity < severityThreshold) {
             return;
         }
         
-        const event = {
+        const event: EventData = {
             id: `${type}-${Date.now()}-${Math.random()}`,
             type,
             emoji,
@@ -67,7 +95,7 @@ function App() {
         setEvents(prevEvents => [...prevEvents, event].slice(-100)); // Keep last 100 events
     }, [severityThreshold]);
 
-    const handleEventClick = (event) => {
+    const handleEventClick = (event: EventData) => {
         if (mapController && event.lat !== undefined && event.lon !== undefined) {
             mapController.zoomTo(event.lat, event.lon, event.data);
         }
@@ -107,7 +135,7 @@ function App() {
             ]);
 
             // Convert all raw data to DataPoints
-            const allDataPoints = [
+            const allDataPoints: DataPoint[] = [
                 ...convertBatch(eqResult.data, earthquakeToDataPoint),
                 ...(issResult.data ? [issToDataPoint(issResult.data)] : []),
                 ...convertBatch(volcanicResult.data, volcanoToDataPoint),
@@ -163,8 +191,8 @@ function App() {
     }, []);
 
     // Calculate counts by type
-    const getCountsByType = () => {
-        const counts = {};
+    const getCountsByType = (): Record<string, number> => {
+        const counts: Record<string, number> = {};
         dataPoints.forEach(dp => {
             counts[dp.type] = (counts[dp.type] || 0) + 1;
         });
@@ -205,3 +233,4 @@ function App() {
 }
 
 export default App;
+

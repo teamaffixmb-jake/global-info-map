@@ -2,7 +2,24 @@
  * Converters - Transform raw API data into DataPoint objects
  */
 
-import { DataPoint, DataSourceType, DataSourcePrefix } from '../models/DataPoint';
+import { 
+    DataPoint, 
+    DataSourceType, 
+    DataSourcePrefix,
+    EarthquakeMetadata,
+    ISSMetadata,
+    VolcanoMetadata,
+    HurricaneMetadata,
+    TornadoMetadata,
+    AuroraMetadata,
+    WindMetadata,
+    PrecipitationMetadata,
+    RocketMetadata,
+    ConflictMetadata,
+    ProtestMetadata,
+    UnrestMetadata,
+    DiseaseMetadata
+} from '../models/DataPoint';
 import {
     getEarthquakeSeverity,
     getVolcanicSeverity,
@@ -19,13 +36,158 @@ import {
     getISSSeverity
 } from './severity';
 
+// ===== Raw API Type Definitions =====
+
+export interface RawEarthquake {
+    id?: string;
+    geometry: {
+        coordinates: [number, number, number?];
+    };
+    properties: {
+        mag: number;
+        place: string;
+        time: number;
+        url?: string;
+    };
+}
+
+export interface RawISS {
+    lat: number;
+    lon: number;
+    altitude: number;
+    velocity: number;
+}
+
+export interface RawVolcano {
+    id?: string;
+    lat: number;
+    lon: number;
+    name: string;
+    elevation: number;
+    country: string;
+    alertLevel: string;
+    lastEruption: number;
+    time?: number;
+}
+
+export interface RawHurricane {
+    id?: string;
+    lat: number;
+    lon: number;
+    name: string;
+    category: number;
+    windSpeed: number;
+    pressure: number;
+    direction: string;
+    time?: number;
+}
+
+export interface RawTornado {
+    id?: string;
+    lat: number;
+    lon: number;
+    location: string;
+    intensity: number;
+    time?: number;
+}
+
+export interface RawAurora {
+    id?: string;
+    lat: number;
+    lon: number;
+    name: string;
+    kpIndex: number;
+    visibility: string;
+    time?: number;
+}
+
+export interface RawWind {
+    id?: string;
+    lat: number;
+    lon: number;
+    speed: number;
+    direction: number;
+    gusts: number;
+    time?: number;
+}
+
+export interface RawPrecipitation {
+    id?: string;
+    lat: number;
+    lon: number;
+    type: string;
+    intensity: number;
+    accumulation: number;
+    time?: number;
+}
+
+export interface RawRocket {
+    id?: string;
+    lat: number;
+    lon: number;
+    site: string;
+    country: string;
+    mission: string;
+    rocketType: string;
+    launchTime: number;
+    status: string;
+}
+
+export interface RawConflict {
+    id?: string;
+    lat: number;
+    lon: number;
+    name: string;
+    type: string;
+    intensity: string;
+    recentIncidents: number;
+    time?: number;
+}
+
+export interface RawProtest {
+    id?: string;
+    lat: number;
+    lon: number;
+    city: string;
+    country: string;
+    cause: string;
+    size: number;
+    duration: number;
+    status: string;
+    time?: number;
+}
+
+export interface RawUnrest {
+    id?: string;
+    lat: number;
+    lon: number;
+    location: string;
+    country: string;
+    severity: string;
+    type: string;
+    affectedPopulation: number;
+    time?: number;
+}
+
+export interface RawDisease {
+    id?: string;
+    lat: number;
+    lon: number;
+    location: string;
+    disease: string;
+    cases: number;
+    severity: string;
+    status: string;
+    time?: number;
+}
+
+// ===== Converter Functions =====
+
 /**
  * Convert earthquake data to DataPoint
- * @param {object} eq - Raw earthquake data from USGS API
- * @returns {DataPoint}
  */
-export function earthquakeToDataPoint(eq) {
-    const [lon, lat] = eq.geometry.coordinates;
+export function earthquakeToDataPoint(eq: RawEarthquake): DataPoint<EarthquakeMetadata> {
+    const [lon, lat, depth = 0] = eq.geometry.coordinates;
     const mag = eq.properties.mag;
     const place = eq.properties.place;
     const time = eq.properties.time;
@@ -48,7 +210,7 @@ export function earthquakeToDataPoint(eq) {
         '🔴',
         {
             magnitude: mag,
-            depth: eq.geometry.coordinates[2] || 0,
+            depth: depth,
             place: place,
             url: eq.properties.url
         }
@@ -57,10 +219,8 @@ export function earthquakeToDataPoint(eq) {
 
 /**
  * Convert ISS data to DataPoint
- * @param {object} iss - Raw ISS data
- * @returns {DataPoint}
  */
-export function issToDataPoint(iss) {
+export function issToDataPoint(iss: RawISS): DataPoint<ISSMetadata> {
     const id = 'iss'; // Only one ISS, so ID is just 'iss'
     const severity = getISSSeverity();
     
@@ -83,10 +243,8 @@ export function issToDataPoint(iss) {
 
 /**
  * Convert volcano data to DataPoint
- * @param {object} volcano - Raw volcano data
- * @returns {DataPoint}
  */
-export function volcanoToDataPoint(volcano) {
+export function volcanoToDataPoint(volcano: RawVolcano): DataPoint<VolcanoMetadata> {
     const uniqueId = volcano.id || `${volcano.name.replace(/\s+/g, '-').toLowerCase()}`;
     const id = `${DataSourcePrefix[DataSourceType.VOLCANO]}-${uniqueId}`;
     
@@ -113,10 +271,8 @@ export function volcanoToDataPoint(volcano) {
 
 /**
  * Convert hurricane data to DataPoint
- * @param {object} hurricane - Raw hurricane data
- * @returns {DataPoint}
  */
-export function hurricaneToDataPoint(hurricane) {
+export function hurricaneToDataPoint(hurricane: RawHurricane): DataPoint<HurricaneMetadata> {
     const uniqueId = hurricane.id || `${hurricane.name.replace(/\s+/g, '-').toLowerCase()}`;
     const id = `${DataSourcePrefix[DataSourceType.HURRICANE]}-${uniqueId}`;
     
@@ -143,10 +299,8 @@ export function hurricaneToDataPoint(hurricane) {
 
 /**
  * Convert tornado data to DataPoint
- * @param {object} tornado - Raw tornado data
- * @returns {DataPoint}
  */
-export function tornadoToDataPoint(tornado) {
+export function tornadoToDataPoint(tornado: RawTornado): DataPoint<TornadoMetadata> {
     const uniqueId = tornado.id || `${tornado.location}-${tornado.time}`;
     const id = `${DataSourcePrefix[DataSourceType.TORNADO]}-${uniqueId}`;
     
@@ -171,10 +325,8 @@ export function tornadoToDataPoint(tornado) {
 
 /**
  * Convert aurora data to DataPoint
- * @param {object} aurora - Raw aurora data
- * @returns {DataPoint}
  */
-export function auroraToDataPoint(aurora) {
+export function auroraToDataPoint(aurora: RawAurora): DataPoint<AuroraMetadata> {
     const uniqueId = aurora.id || `${aurora.name.replace(/\s+/g, '-').toLowerCase()}-${aurora.time}`;
     const id = `${DataSourcePrefix[DataSourceType.AURORA]}-${uniqueId}`;
     
@@ -200,10 +352,8 @@ export function auroraToDataPoint(aurora) {
 
 /**
  * Convert wind pattern data to DataPoint
- * @param {object} wind - Raw wind data
- * @returns {DataPoint}
  */
-export function windToDataPoint(wind) {
+export function windToDataPoint(wind: RawWind): DataPoint<WindMetadata> {
     const uniqueId = wind.id || `${wind.lat.toFixed(2)}-${wind.lon.toFixed(2)}`;
     const id = `${DataSourcePrefix[DataSourceType.WIND]}-${uniqueId}`;
     
@@ -229,10 +379,8 @@ export function windToDataPoint(wind) {
 
 /**
  * Convert precipitation data to DataPoint
- * @param {object} precip - Raw precipitation data
- * @returns {DataPoint}
  */
-export function precipitationToDataPoint(precip) {
+export function precipitationToDataPoint(precip: RawPrecipitation): DataPoint<PrecipitationMetadata> {
     const uniqueId = precip.id || `${precip.lat.toFixed(2)}-${precip.lon.toFixed(2)}`;
     const id = `${DataSourcePrefix[DataSourceType.PRECIPITATION]}-${uniqueId}`;
     
@@ -259,10 +407,8 @@ export function precipitationToDataPoint(precip) {
 
 /**
  * Convert rocket launch data to DataPoint
- * @param {object} rocket - Raw rocket launch data
- * @returns {DataPoint}
  */
-export function rocketToDataPoint(rocket) {
+export function rocketToDataPoint(rocket: RawRocket): DataPoint<RocketMetadata> {
     const uniqueId = rocket.id || `${rocket.site.replace(/\s+/g, '-').toLowerCase()}-${rocket.mission.replace(/\s+/g, '-')}`;
     const id = `${DataSourcePrefix[DataSourceType.ROCKET]}-${uniqueId}`;
     
@@ -290,10 +436,8 @@ export function rocketToDataPoint(rocket) {
 
 /**
  * Convert conflict data to DataPoint
- * @param {object} conflict - Raw conflict data
- * @returns {DataPoint}
  */
-export function conflictToDataPoint(conflict) {
+export function conflictToDataPoint(conflict: RawConflict): DataPoint<ConflictMetadata> {
     const uniqueId = conflict.id || `${conflict.name.replace(/\s+/g, '-').toLowerCase()}`;
     const id = `${DataSourcePrefix[DataSourceType.CONFLICT]}-${uniqueId}`;
     
@@ -319,10 +463,8 @@ export function conflictToDataPoint(conflict) {
 
 /**
  * Convert protest data to DataPoint
- * @param {object} protest - Raw protest data
- * @returns {DataPoint}
  */
-export function protestToDataPoint(protest) {
+export function protestToDataPoint(protest: RawProtest): DataPoint<ProtestMetadata> {
     const uniqueId = protest.id || `${protest.city.replace(/\s+/g, '-').toLowerCase()}-${protest.time}`;
     const id = `${DataSourcePrefix[DataSourceType.PROTEST]}-${uniqueId}`;
     
@@ -351,10 +493,8 @@ export function protestToDataPoint(protest) {
 
 /**
  * Convert social unrest data to DataPoint
- * @param {object} unrest - Raw social unrest data
- * @returns {DataPoint}
  */
-export function unrestToDataPoint(unrest) {
+export function unrestToDataPoint(unrest: RawUnrest): DataPoint<UnrestMetadata> {
     const uniqueId = unrest.id || `${unrest.location.replace(/\s+/g, '-').toLowerCase()}`;
     const id = `${DataSourcePrefix[DataSourceType.UNREST]}-${uniqueId}`;
     
@@ -382,10 +522,8 @@ export function unrestToDataPoint(unrest) {
 
 /**
  * Convert disease outbreak data to DataPoint
- * @param {object} disease - Raw disease outbreak data
- * @returns {DataPoint}
  */
-export function diseaseToDataPoint(disease) {
+export function diseaseToDataPoint(disease: RawDisease): DataPoint<DiseaseMetadata> {
     const uniqueId = disease.id || `${disease.location.replace(/\s+/g, '-').toLowerCase()}-${disease.disease.replace(/\s+/g, '-')}`;
     const id = `${DataSourcePrefix[DataSourceType.DISEASE]}-${uniqueId}`;
     
@@ -413,11 +551,11 @@ export function diseaseToDataPoint(disease) {
 
 /**
  * Convert array of raw data to array of DataPoints
- * @param {Array} rawData 
- * @param {Function} converter 
- * @returns {Array<DataPoint>}
  */
-export function convertBatch(rawData, converter) {
+export function convertBatch<T>(
+    rawData: T[] | null | undefined, 
+    converter: (item: T) => DataPoint
+): DataPoint[] {
     if (!rawData || !Array.isArray(rawData)) return [];
     return rawData.map(item => converter(item));
 }

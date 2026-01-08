@@ -8,8 +8,8 @@
  * 4. Logging events based on severity threshold
  */
 
-import L from 'leaflet';
-import { DataSourceType } from '../models/DataPoint';
+import * as L from 'leaflet';
+import { DataPoint, DataSourceType } from '../models/DataPoint';
 import { getMagnitudeRadius, getMagnitudeColor } from './helpers';
 import { getVolcanicAlertColor, getVolcanicSize } from './helpers';
 import { getHurricaneColor, getHurricaneSize } from './helpers';
@@ -21,34 +21,55 @@ import { getConflictColor } from './helpers';
 import { getProtestColor } from './helpers';
 import { getUnrestColor } from './helpers';
 import { getDiseaseColor } from './helpers';
-import { animateCircleBounce, animateCirclePulse } from './animations';
+import { animateCircleBounce } from './animations';
 import { formatAge } from './helpers';
 
+// ===== Type Definitions =====
+
+export type AddEventCallback = (
+    type: string,
+    emoji: string,
+    title: string,
+    message: string,
+    lat: number,
+    lon: number,
+    data: { markerId?: string; [key: string]: any },
+    severity: number
+) => void;
+
+interface MarkerEntry {
+    marker: L.Marker | L.CircleMarker;
+    dataPoint: DataPoint;
+}
+
+// ===== MarkerManager Class =====
+
 export class MarkerManager {
-    constructor(map, addEventCallback, severityThreshold) {
+    private map: L.Map;
+    private addEventCallback: AddEventCallback | null;
+    private severityThreshold: number;
+    private markers: Map<string, MarkerEntry>;
+    private loggedEventIds: Set<string>;
+
+    constructor(map: L.Map, addEventCallback: AddEventCallback | null = null, severityThreshold: number = 1) {
         this.map = map;
         this.addEventCallback = addEventCallback;
         this.severityThreshold = severityThreshold;
-        
-        // Map of ID -> {marker, dataPoint}
         this.markers = new Map();
-        
-        // Track which IDs we've already logged to event log
         this.loggedEventIds = new Set();
     }
 
     /**
      * Update severity threshold
      */
-    setSeverityThreshold(threshold) {
+    setSeverityThreshold(threshold: number): void {
         this.severityThreshold = threshold;
     }
 
     /**
      * Process an array of DataPoints
-     * @param {Array<DataPoint>} dataPoints 
      */
-    processDataPoints(dataPoints) {
+    processDataPoints(dataPoints: DataPoint[]): void {
         const currentIds = new Set(dataPoints.map(dp => dp.id));
         
         // Update or add markers for current data points
@@ -57,8 +78,8 @@ export class MarkerManager {
         });
         
         // Remove markers that are no longer in the data
-        const idsToRemove = [];
-        this.markers.forEach((value, id) => {
+        const idsToRemove: string[] = [];
+        this.markers.forEach((_value, id) => {
             if (!currentIds.has(id)) {
                 idsToRemove.push(id);
             }
@@ -69,9 +90,8 @@ export class MarkerManager {
 
     /**
      * Process a single DataPoint
-     * @param {DataPoint} dataPoint 
      */
-    processDataPoint(dataPoint) {
+    processDataPoint(dataPoint: DataPoint): void {
         const existing = this.markers.get(dataPoint.id);
         
         if (existing) {
@@ -87,14 +107,13 @@ export class MarkerManager {
 
     /**
      * Add a new marker to the map
-     * @param {DataPoint} dataPoint 
      */
-    addMarker(dataPoint) {
+    private addMarker(dataPoint: DataPoint): void {
         const marker = this.createMarker(dataPoint);
         if (!marker) return;
         
         marker.addTo(this.map);
-        marker._markerId = dataPoint.id;
+        (marker as any)._markerId = dataPoint.id;
         
         this.markers.set(dataPoint.id, { marker, dataPoint });
         
@@ -112,10 +131,8 @@ export class MarkerManager {
 
     /**
      * Update an existing marker
-     * @param {DataPoint} dataPoint 
-     * @param {object} existing 
      */
-    updateMarker(dataPoint, existing) {
+    private updateMarker(dataPoint: DataPoint, existing: MarkerEntry): void {
         // Remove old marker
         this.map.removeLayer(existing.marker);
         
@@ -124,7 +141,7 @@ export class MarkerManager {
         if (!marker) return;
         
         marker.addTo(this.map);
-        marker._markerId = dataPoint.id;
+        (marker as any)._markerId = dataPoint.id;
         
         this.markers.set(dataPoint.id, { marker, dataPoint });
         
@@ -134,21 +151,22 @@ export class MarkerManager {
 
     /**
      * Remove a marker from the map
-     * @param {string} id 
      */
-    removeMarker(id) {
+    removeMarker(id: string): void {
         const existing = this.markers.get(id);
         if (existing) {
+            const marker = existing.marker as any;
+            
             // Clean up any pulse intervals
-            if (existing.marker._pulseInterval) {
-                clearInterval(existing.marker._pulseInterval);
+            if (marker._pulseInterval) {
+                clearInterval(marker._pulseInterval);
             }
-            if (existing.marker._pulseCircle) {
-                if (existing.marker._pulseCircle._pulseInterval) {
-                    clearInterval(existing.marker._pulseCircle._pulseInterval);
+            if (marker._pulseCircle) {
+                if (marker._pulseCircle._pulseInterval) {
+                    clearInterval(marker._pulseCircle._pulseInterval);
                 }
-                if (this.map.hasLayer(existing.marker._pulseCircle)) {
-                    this.map.removeLayer(existing.marker._pulseCircle);
+                if (this.map.hasLayer(marker._pulseCircle)) {
+                    this.map.removeLayer(marker._pulseCircle);
                 }
             }
             
@@ -160,10 +178,8 @@ export class MarkerManager {
 
     /**
      * Create a Leaflet marker based on DataPoint type
-     * @param {DataPoint} dataPoint 
-     * @returns {L.Marker|L.CircleMarker}
      */
-    createMarker(dataPoint) {
+    private createMarker(dataPoint: DataPoint): L.Marker | L.CircleMarker | null {
         switch (dataPoint.type) {
             case DataSourceType.EARTHQUAKE:
                 return this.createEarthquakeMarker(dataPoint);
@@ -200,8 +216,8 @@ export class MarkerManager {
     /**
      * Create earthquake marker
      */
-    createEarthquakeMarker(dataPoint) {
-        const mag = dataPoint.metadata.magnitude;
+    private createEarthquakeMarker(dataPoint: DataPoint): L.CircleMarker {
+        const mag = (dataPoint.metadata as any).magnitude;
         const radius = getMagnitudeRadius(mag);
         const color = getMagnitudeColor(mag);
         
@@ -216,11 +232,12 @@ export class MarkerManager {
         
         const ageText = dataPoint.isNew() ? ' 🆕 VERY RECENT!' : (dataPoint.isRecent() ? ' ⏰ Recent' : '');
         const time = new Date(dataPoint.timestamp).toLocaleString();
+        const metadata = dataPoint.metadata as any;
         
         circle.bindPopup(`
             <strong>${dataPoint.emoji} ${dataPoint.title}${ageText}</strong><br>
             Location: ${dataPoint.description}<br>
-            Depth: ${dataPoint.metadata.depth}km<br>
+            Depth: ${metadata.depth}km<br>
             Time: ${time}<br>
             Age: ${formatAge(dataPoint.getAge())}
         `);
@@ -231,7 +248,7 @@ export class MarkerManager {
     /**
      * Create ISS marker
      */
-    createISSMarker(dataPoint) {
+    private createISSMarker(dataPoint: DataPoint): L.Marker {
         const issIcon = L.divIcon({
             className: 'iss-marker',
             html: `<div style="
@@ -257,9 +274,10 @@ export class MarkerManager {
     /**
      * Create volcano marker
      */
-    createVolcanoMarker(dataPoint) {
-        const baseRadius = getVolcanicSize(dataPoint.metadata.alertLevel);
-        const color = getVolcanicAlertColor(dataPoint.metadata.alertLevel);
+    private createVolcanoMarker(dataPoint: DataPoint): L.Marker {
+        const metadata = dataPoint.metadata as any;
+        const baseRadius = getVolcanicSize(metadata.alertLevel);
+        const color = getVolcanicAlertColor(metadata.alertLevel);
         
         const volcanoIcon = L.divIcon({
             className: 'volcano-marker',
@@ -277,13 +295,13 @@ export class MarkerManager {
         
         const marker = L.marker([dataPoint.lat, dataPoint.lon], { icon: volcanoIcon });
         
-        const lastEruptionDate = new Date(dataPoint.metadata.lastEruption).toLocaleDateString();
+        const lastEruptionDate = new Date(metadata.lastEruption).toLocaleDateString();
         const ageText = dataPoint.isNew() ? ' 🆕 VERY RECENT!' : '';
         
         marker.bindPopup(`
             <strong>${dataPoint.emoji} ${dataPoint.title}${ageText}</strong><br>
             ${dataPoint.description}<br>
-            Elevation: ${dataPoint.metadata.elevation}m<br>
+            Elevation: ${metadata.elevation}m<br>
             Last Eruption: ${lastEruptionDate}<br>
             Activity: ${formatAge(dataPoint.getAge())}
         `);
@@ -294,9 +312,10 @@ export class MarkerManager {
     /**
      * Create hurricane marker
      */
-    createHurricaneMarker(dataPoint) {
-        const size = getHurricaneSize(dataPoint.metadata.category);
-        const color = getHurricaneColor(dataPoint.metadata.category);
+    private createHurricaneMarker(dataPoint: DataPoint): L.CircleMarker {
+        const metadata = dataPoint.metadata as any;
+        const size = getHurricaneSize(metadata.category);
+        const color = getHurricaneColor(metadata.category);
         
         const circle = L.circleMarker([dataPoint.lat, dataPoint.lon], {
             radius: size,
@@ -310,8 +329,8 @@ export class MarkerManager {
         circle.bindPopup(`
             <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
             ${dataPoint.description}<br>
-            Pressure: ${dataPoint.metadata.pressure}mb<br>
-            Direction: ${dataPoint.metadata.direction}
+            Pressure: ${metadata.pressure}mb<br>
+            Direction: ${metadata.direction}
         `);
         
         return circle;
@@ -320,9 +339,10 @@ export class MarkerManager {
     /**
      * Create tornado marker
      */
-    createTornadoMarker(dataPoint) {
-        const size = getTornadoSize(dataPoint.metadata.intensity);
-        const color = getTornadoColor(dataPoint.metadata.intensity);
+    private createTornadoMarker(dataPoint: DataPoint): L.Marker {
+        const metadata = dataPoint.metadata as any;
+        const size = getTornadoSize(metadata.intensity);
+        const color = getTornadoColor(metadata.intensity);
         
         const tornadoIcon = L.divIcon({
             className: 'tornado-marker',
@@ -349,9 +369,10 @@ export class MarkerManager {
     /**
      * Create aurora marker
      */
-    createAuroraMarker(dataPoint) {
-        const size = getAuroraSize(dataPoint.metadata.kpIndex);
-        const color = getAuroraColor(dataPoint.metadata.kpIndex);
+    private createAuroraMarker(dataPoint: DataPoint): L.CircleMarker {
+        const metadata = dataPoint.metadata as any;
+        const size = getAuroraSize(metadata.kpIndex);
+        const color = getAuroraColor(metadata.kpIndex);
         
         const circle = L.circleMarker([dataPoint.lat, dataPoint.lon], {
             radius: size,
@@ -365,7 +386,7 @@ export class MarkerManager {
         circle.bindPopup(`
             <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
             ${dataPoint.description}<br>
-            Visibility: ${dataPoint.metadata.visibility}
+            Visibility: ${metadata.visibility}
         `);
         
         return circle;
@@ -374,9 +395,10 @@ export class MarkerManager {
     /**
      * Create wind marker
      */
-    createWindMarker(dataPoint) {
-        const color = getWindColor(dataPoint.metadata.speed);
-        const rotation = dataPoint.metadata.direction;
+    private createWindMarker(dataPoint: DataPoint): L.Marker {
+        const metadata = dataPoint.metadata as any;
+        const color = getWindColor(metadata.speed);
+        const rotation = metadata.direction;
         
         const windIcon = L.divIcon({
             className: 'wind-marker',
@@ -403,8 +425,9 @@ export class MarkerManager {
     /**
      * Create precipitation marker
      */
-    createPrecipitationMarker(dataPoint) {
-        const color = getPrecipitationColor(dataPoint.metadata.intensity);
+    private createPrecipitationMarker(dataPoint: DataPoint): L.CircleMarker {
+        const metadata = dataPoint.metadata as any;
+        const color = getPrecipitationColor(metadata.intensity);
         
         const circle = L.circleMarker([dataPoint.lat, dataPoint.lon], {
             radius: 8,
@@ -418,7 +441,7 @@ export class MarkerManager {
         circle.bindPopup(`
             <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
             ${dataPoint.description}<br>
-            Accumulation: ${dataPoint.metadata.accumulation.toFixed(1)}mm
+            Accumulation: ${metadata.accumulation.toFixed(1)}mm
         `);
         
         return circle;
@@ -427,7 +450,7 @@ export class MarkerManager {
     /**
      * Create rocket launch marker
      */
-    createRocketMarker(dataPoint) {
+    private createRocketMarker(dataPoint: DataPoint): L.Marker {
         const rocketIcon = L.divIcon({
             className: 'rocket-marker',
             html: `<div style="
@@ -440,13 +463,14 @@ export class MarkerManager {
         
         const marker = L.marker([dataPoint.lat, dataPoint.lon], { icon: rocketIcon });
         
-        const launchTime = new Date(dataPoint.metadata.launchTime).toLocaleString();
+        const metadata = dataPoint.metadata as any;
+        const launchTime = new Date(metadata.launchTime).toLocaleString();
         
         marker.bindPopup(`
             <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
             ${dataPoint.description}<br>
             Launch Time: ${launchTime}<br>
-            Status: ${dataPoint.metadata.status}
+            Status: ${metadata.status}
         `);
         
         return marker;
@@ -455,8 +479,9 @@ export class MarkerManager {
     /**
      * Create conflict marker
      */
-    createConflictMarker(dataPoint) {
-        const color = getConflictColor(dataPoint.metadata.intensity);
+    private createConflictMarker(dataPoint: DataPoint): L.CircleMarker {
+        const metadata = dataPoint.metadata as any;
+        const color = getConflictColor(metadata.intensity);
         
         const circle = L.circleMarker([dataPoint.lat, dataPoint.lon], {
             radius: 12,
@@ -470,7 +495,7 @@ export class MarkerManager {
         circle.bindPopup(`
             <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
             ${dataPoint.description}<br>
-            Recent Incidents: ${dataPoint.metadata.recentIncidents}
+            Recent Incidents: ${metadata.recentIncidents}
         `);
         
         return circle;
@@ -479,8 +504,9 @@ export class MarkerManager {
     /**
      * Create protest marker
      */
-    createProtestMarker(dataPoint) {
-        const color = getProtestColor(dataPoint.metadata.size);
+    private createProtestMarker(dataPoint: DataPoint): L.Marker {
+        const metadata = dataPoint.metadata as any;
+        const color = getProtestColor(metadata.size);
         
         const protestIcon = L.divIcon({
             className: 'protest-marker',
@@ -498,8 +524,8 @@ export class MarkerManager {
         marker.bindPopup(`
             <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
             ${dataPoint.description}<br>
-            Duration: ${dataPoint.metadata.duration}h<br>
-            Status: ${dataPoint.metadata.status}
+            Duration: ${metadata.duration}h<br>
+            Status: ${metadata.status}
         `);
         
         return marker;
@@ -508,8 +534,9 @@ export class MarkerManager {
     /**
      * Create social unrest marker
      */
-    createUnrestMarker(dataPoint) {
-        const color = getUnrestColor(dataPoint.metadata.severity);
+    private createUnrestMarker(dataPoint: DataPoint): L.CircleMarker {
+        const metadata = dataPoint.metadata as any;
+        const color = getUnrestColor(metadata.severity);
         
         const circle = L.circleMarker([dataPoint.lat, dataPoint.lon], {
             radius: 10,
@@ -523,7 +550,7 @@ export class MarkerManager {
         circle.bindPopup(`
             <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
             ${dataPoint.description}<br>
-            Affected: ${dataPoint.metadata.affectedPopulation.toLocaleString()} people
+            Affected: ${metadata.affectedPopulation.toLocaleString()} people
         `);
         
         return circle;
@@ -532,8 +559,9 @@ export class MarkerManager {
     /**
      * Create disease outbreak marker
      */
-    createDiseaseMarker(dataPoint) {
-        const color = getDiseaseColor(dataPoint.metadata.severity);
+    private createDiseaseMarker(dataPoint: DataPoint): L.CircleMarker {
+        const metadata = dataPoint.metadata as any;
+        const color = getDiseaseColor(metadata.severity);
         
         const circle = L.circleMarker([dataPoint.lat, dataPoint.lon], {
             radius: 12,
@@ -547,7 +575,7 @@ export class MarkerManager {
         circle.bindPopup(`
             <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
             ${dataPoint.description}<br>
-            Status: ${dataPoint.metadata.status}
+            Status: ${metadata.status}
         `);
         
         return circle;
@@ -556,16 +584,16 @@ export class MarkerManager {
     /**
      * Animate a new marker
      */
-    animateNewMarker(dataPoint, marker) {
+    private animateNewMarker(_dataPoint: DataPoint, marker: L.Marker | L.CircleMarker): void {
         if (marker instanceof L.CircleMarker) {
-            animateCircleBounce(marker, marker.options.radius);
+            animateCircleBounce(marker, marker.options.radius || 10);
         }
     }
 
     /**
      * Log event to event log
      */
-    logEvent(dataPoint, isNew) {
+    private logEvent(dataPoint: DataPoint, isNew: boolean): void {
         if (!this.addEventCallback) return;
         if (dataPoint.severity < this.severityThreshold) return;
         
@@ -584,17 +612,18 @@ export class MarkerManager {
     /**
      * Clear all markers
      */
-    clear() {
+    clear(): void {
         this.markers.forEach((value) => {
-            if (value.marker._pulseInterval) {
-                clearInterval(value.marker._pulseInterval);
+            const marker = value.marker as any;
+            if (marker._pulseInterval) {
+                clearInterval(marker._pulseInterval);
             }
-            if (value.marker._pulseCircle) {
-                if (value.marker._pulseCircle._pulseInterval) {
-                    clearInterval(value.marker._pulseCircle._pulseInterval);
+            if (marker._pulseCircle) {
+                if (marker._pulseCircle._pulseInterval) {
+                    clearInterval(marker._pulseCircle._pulseInterval);
                 }
-                if (this.map.hasLayer(value.marker._pulseCircle)) {
-                    this.map.removeLayer(value.marker._pulseCircle);
+                if (this.map.hasLayer(marker._pulseCircle)) {
+                    this.map.removeLayer(marker._pulseCircle);
                 }
             }
             this.map.removeLayer(value.marker);
@@ -606,15 +635,32 @@ export class MarkerManager {
     /**
      * Get marker by ID
      */
-    getMarker(id) {
+    getMarker(id: string): MarkerEntry | undefined {
         return this.markers.get(id);
     }
 
     /**
      * Get all markers
      */
-    getAllMarkers() {
+    getAllMarkers(): MarkerEntry[] {
         return Array.from(this.markers.values());
+    }
+
+    /**
+     * Open popup for a specific marker
+     */
+    openPopupForMarker(id: string): void {
+        const entry = this.markers.get(id);
+        if (entry && entry.marker) {
+            entry.marker.openPopup();
+        }
+    }
+
+    /**
+     * Update addEvent callback
+     */
+    updateAddEvent(callback: AddEventCallback | null): void {
+        this.addEventCallback = callback;
     }
 }
 

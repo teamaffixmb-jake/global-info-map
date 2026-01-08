@@ -2,7 +2,12 @@ import { useState } from 'react';
 import './Legend.css';
 import { DataSourceType } from '../models/DataPoint';
 
-export default function Legend({ counts = {}, lastUpdate = '' }) {
+interface LegendProps {
+    counts?: Record<string, number>;
+    lastUpdate?: string;
+}
+
+export default function Legend({ counts = {}, lastUpdate = '' }: LegendProps) {
     const [isMinimized, setIsMinimized] = useState(false);
 
     return (

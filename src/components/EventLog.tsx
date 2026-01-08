@@ -2,9 +2,34 @@ import { useState, useEffect, useRef } from 'react';
 import './EventLog.css';
 import { SEVERITY, SEVERITY_LABELS } from '../utils/severity';
 
-export default function EventLog({ events, onEventClick, severityThreshold, onSeverityChange }) {
+interface EventData {
+    id: string;
+    type: string;
+    emoji: string;
+    title: string;
+    message: string;
+    timestamp: number;
+    lat?: number;
+    lon?: number;
+    data?: { markerId?: string; [key: string]: any };
+    severity: number;
+}
+
+interface EventLogProps {
+    events: EventData[];
+    onEventClick?: (event: EventData) => void;
+    severityThreshold: number;
+    onSeverityChange: (threshold: number) => void;
+}
+
+export default function EventLog({ 
+    events, 
+    onEventClick, 
+    severityThreshold, 
+    onSeverityChange 
+}: EventLogProps) {
     const [isMinimized, setIsMinimized] = useState(false);
-    const contentRef = useRef(null);
+    const contentRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to bottom only if already at bottom
     useEffect(() => {
@@ -18,7 +43,7 @@ export default function EventLog({ events, onEventClick, severityThreshold, onSe
         }
     }, [events, isMinimized]);
 
-    const formatTime = (timestamp) => {
+    const formatTime = (timestamp: number): string => {
         const date = new Date(timestamp);
         return date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
