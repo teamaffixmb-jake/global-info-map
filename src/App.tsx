@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
-import Map from './components/Map';
+import CesiumMap from './components/CesiumMap';
 import Legend from './components/Legend';
 import EventLog from './components/EventLog';
 import { 
@@ -38,7 +38,7 @@ import {
     // diseaseToDataPoint,
 } from './utils/converters';
 import { DataPoint } from './models/DataPoint';
-import { MarkerManager } from './utils/MarkerManager';
+import { CesiumMarkerManager } from './utils/CesiumMarkerManager';
 
 interface MapController {
     zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => void;
@@ -69,7 +69,7 @@ function App() {
     const [windRateLimited, setWindRateLimited] = useState<boolean>(false); // Wind API rate limit warning
     
     // Store marker manager instance
-    const markerManagerRef = useRef<MarkerManager | null>(null);
+    const markerManagerRef = useRef<CesiumMarkerManager | null>(null);
     
     // Track if wind fetch is in progress to prevent concurrent fetches
     const windFetchInProgressRef = useRef<boolean>(false);
@@ -267,7 +267,7 @@ function App() {
                 </div>
             ) : (
                 <>
-                    <Map 
+                    <CesiumMap 
                         dataPoints={dataPoints}
                         addEvent={addEvent}
                         severityThreshold={severityThreshold}

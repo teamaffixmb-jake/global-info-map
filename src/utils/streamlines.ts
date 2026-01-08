@@ -3,7 +3,7 @@
  * Creates smooth, flowing curves that follow wind vector fields
  */
 
-import { RawWind } from '../types/raw';
+import { RawWind } from './converters';
 
 export interface StreamlinePoint {
     lat: number;

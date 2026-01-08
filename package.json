@@ -1,24 +1,26 @@
 {
   "name": "global-data-screensaver",
-  "version": "1.0.0",
+  "version": "5.0.0",
   "type": "module",
+  "description": "Real-time global data visualization on a 3D interactive globe with Cesium.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "leaflet": "^1.9.4",
+    "cesium": "^1.137.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@types/leaflet": "^1.9.21",
+    "@types/cesium": "^1.70.4",
     "@types/node": "^25.0.3",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "^5.9.3",
-    "vite": "^5.0.8"
+    "vite": "^5.0.8",
+    "vite-plugin-cesium": "^1.2.23"
   }
 }

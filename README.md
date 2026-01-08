@@ -1,10 +1,10 @@
 # Global Data Screensaver
 
-A real-time global data visualization application built with **React + TypeScript** that displays earthquakes, volcanic activity, hurricanes, and atmospheric wind patterns on an interactive map with flowing streamlines.
+A real-time global data visualization application built with **React + TypeScript** that displays earthquakes, volcanic activity, hurricanes, and atmospheric wind patterns on an interactive **3D globe** with flowing streamlines.
 
 ## ✨ Key Features
 
-- 🌍 **Interactive Leaflet Map** - Smooth pan, zoom, and click interactions
+- 🌍 **Interactive 3D Globe** - Powered by Cesium.js with smooth rotation, zoom, and tilt
 - 🌊 **Wind Flow Streamlines** - Flowing curves with directional arrows showing global atmospheric circulation
 - ⚡ **Real-Time Data** - Live earthquakes (USGS), volcanoes (USGS), hurricanes (NOAA), ISS position
 - 🎯 **Smart Filtering** - Severity-based event filtering with minimizable UI
@@ -43,6 +43,54 @@ Wind data from [Open-Meteo API](https://open-meteo.com/) with:
 - Wind gusts
 - Rate limit handling with 60s retry
 
+## 🌐 3D Globe Features (v5.0.0)
+
+This project now uses **Cesium.js** for photorealistic 3D globe visualization!
+
+### Why 3D?
+
+- **Natural perspective** - See the Earth as it actually looks from space
+- **Better spatial understanding** - True distances and relative positions
+- **WebGL performance** - Hardware-accelerated rendering
+- **Camera freedom** - Rotate, zoom, tilt to any angle
+- **True globe projection** - No distortion at poles like Mercator
+
+### Technical Stack
+
+- **Cesium.js 1.137** - Industry-standard 3D geospatial platform
+- **Vanilla Cesium API** - Direct integration for maximum control and stability
+- **Entity API** - Type-safe entity management with automatic cleanup
+- **PolylineArrowMaterialProperty** - Built-in directional arrows for streamlines
+
+### Coordinate System
+
+Cesium uses **longitude-first** ordering (opposite of Leaflet):
+
+```typescript
+// Cesium (lon, lat, altitude)
+Cartesian3.fromDegrees(lon, lat, heightInMeters)
+
+// vs. Leaflet (lat, lon)
+L.marker([lat, lon])
+```
+
+### Entity Types
+
+Each data type is rendered as a Cesium entity:
+
+- **Earthquakes** - `EllipseGraphics` with magnitude-based sizing and color
+- **Volcanoes** - `PolygonGraphics` with triangular shapes
+- **Hurricanes** - `PointGraphics` + `LabelGraphics` with category coloring
+- **ISS** - `PointGraphics` + `LabelGraphics` at orbital altitude
+- **Wind Streamlines** - `PolylineGraphics` with arrow materials
+
+### Camera Controls
+
+- **Left Click + Drag** - Rotate globe
+- **Right Click + Drag** - Pan camera
+- **Scroll Wheel** - Zoom in/out
+- **Middle Click + Drag** - Tilt camera angle
+
 ## 🏗️ Architecture Overview
 
 This project uses a **unified DataPoint architecture** where all data types flow through a single processing pipeline. This design provides:
@@ -72,7 +120,7 @@ src/
 ├── App.css                    # Global styles and animations
 ├── main.tsx                   # React entry point
 ├── components/
-│   ├── Map.tsx               # Map initialization and MarkerManager integration
+│   ├── CesiumMap.tsx         # 3D globe initialization and CesiumMarkerManager integration
 │   ├── Legend.tsx            # Data legend with counts, minimizable UI, simulated data toggle
 │   └── EventLog.tsx          # Event logging with severity filtering and clear button
 ├── models/
@@ -82,8 +130,8 @@ src/
 ├── utils/
 │   ├── api.ts                # Data fetching with progress tracking and rate limiting
 │   ├── converters.ts         # Raw data → DataPoint conversion with types
-│   ├── MarkerManager.ts      # Unified marker rendering pipeline + streamline renderer
-│   ├── streamlines.ts        # Wind flow visualization algorithms (NEW!)
+│   ├── CesiumMarkerManager.ts # Unified entity rendering pipeline + streamline renderer
+│   ├── streamlines.ts        # Wind flow visualization algorithms
 │   ├── severity.ts           # Severity calculation with enums
 │   ├── helpers.ts            # Color/size/formatting utilities
 │   └── animations.ts         # Marker animation functions
@@ -103,11 +151,11 @@ src/
    ↓
 3. Converters (utils/converters.ts) transform raw data → DataPoints
    ↓
-4. DataPoints passed to MarkerManager (utils/MarkerManager.ts)
+4. DataPoints passed to CesiumMarkerManager (utils/CesiumMarkerManager.ts)
    ↓
-5. MarkerManager compares with existing markers by ID
+5. CesiumMarkerManager compares with existing entities by ID
    ↓
-6. Updates existing markers OR adds new markers OR removes old markers
+6. Updates existing entities OR adds new entities OR removes old entities
    ↓
 7. Wind data → Streamline generation → Polyline rendering
    ↓
@@ -278,15 +326,15 @@ export function convertBatch<T>(
 
 ---
 
-### 4. MarkerManager (`src/utils/MarkerManager.ts`)
+### 4. CesiumMarkerManager (`src/utils/CesiumMarkerManager.ts`)
 
-**Purpose**: Unified, type-safe pipeline for processing and rendering all marker types + wind streamlines.
+**Purpose**: Unified, type-safe pipeline for processing and rendering all entity types + wind streamlines on the 3D globe.
 
 **Core Functionality**:
 
 ```typescript
-export class MarkerManager {
-    private map: L.Map;
+export class CesiumMarkerManager {
+    private viewer: Cesium.Viewer;
     private addEventCallback: AddEventCallback | null;
     private severityThreshold: number;
     private markers: Map<string, MarkerEntry>;
@@ -306,7 +354,7 @@ export class MarkerManager {
     // Compare by ID and update/add/remove as needed
     private processDataPoint(dataPoint: DataPoint): void
     
-    // Create type-specific Leaflet markers
+    // Create type-specific Cesium entities
     private createMarker(dataPoint: DataPoint): L.Marker | L.CircleMarker | null
 }
 ```
@@ -482,7 +530,7 @@ interface MapProps {
     addEvent: AddEventCallback;
     severityThreshold: number;
     setMapController: (controller: MapController) => void;
-    markerManagerRef: MutableRefObject<MarkerManager | null>;
+    markerManagerRef: MutableRefObject<CesiumMarkerManager | null>;
 }
 ```
 
@@ -593,7 +641,7 @@ The app runs at `http://localhost:5173/` (or 5174 if port is busy) with hot modu
 - **React 18** - UI framework
 - **TypeScript 5** - Type safety and tooling
 - **Vite** - Build tool and dev server
-- **Leaflet 1.9** - Interactive 2D maps
+- **Cesium.js 1.137** - Interactive 3D globe with WebGL rendering
 - **@types/react**, **@types/leaflet**, **@types/node** - Type definitions
 
 ---
@@ -624,8 +672,8 @@ The app runs at `http://localhost:5173/` (or 5174 if port is busy) with hot modu
 - Renders each segment separately
 - Skips arrows across dateline
 
-### Markers Not Updating
-**Cause**: MarkerManager not receiving updated DataPoints  
+### Entities Not Updating
+**Cause**: CesiumMarkerManager not receiving updated DataPoints  
 **Solution**: Check that converters are creating stable IDs
 
 ### Event Log Not Showing Events
@@ -650,7 +698,7 @@ The app runs at `http://localhost:5173/` (or 5174 if port is busy) with hot modu
 - Quality filtering removes ~30-40% of generated streamlines
 - Dateline splitting creates multiple smaller polylines
 - Arrows placed every 10 points (not every point)
-- Leaflet's `smoothFactor: 3.0` reduces point count
+- Cesium's PolylineArrowMaterialProperty provides efficient directional arrows
 
 ### Memory Management
 - Event log keeps only last 100 events
@@ -692,7 +740,7 @@ The app runs at `http://localhost:5173/` (or 5174 if port is busy) with hot modu
 7. **Event Log Clearing** - Clear button for event history
 
 ### Potential Future Work 🚀
-1. **3D Globe Conversion** - Migrate from Leaflet to Cesium.js for 3D visualization
+1. ✅ **3D Globe Conversion** - Complete! Migrated to Cesium.js (v5.0.0)
 2. **WebSocket Updates** - Real-time data streaming instead of polling
 3. **Historical Data** - Track and visualize event history over time
 4. **Storm Tracking** - Show hurricane/tornado paths with historical positions
@@ -774,7 +822,7 @@ This project uses **public, free APIs** that don't require authentication:
 When contributing to this project:
 
 1. **Understand the architecture** - Read this README fully
-2. **Follow the data flow** - Raw data → DataPoint → MarkerManager → Render
+2. **Follow the data flow** - Raw data → DataPoint → CesiumMarkerManager → Render
 3. **Maintain type safety** - All new code should be properly typed
 4. **Test with sample data** - Ensure fallbacks work
 5. **Add severity calculations** - New data types need severity functions
@@ -804,7 +852,7 @@ This project is open source and available for educational and demonstration purp
 
 ### Libraries & Tools
 - **Map Tiles**: CartoDB Dark Matter
-- **Leaflet**: Open-source mapping library
+- **Cesium.js**: Open-source 3D globe and mapping platform
 - **React**: UI framework by Meta
 - **TypeScript**: Static typing by Microsoft
 - **Vite**: Build tool by Evan You
@@ -817,6 +865,6 @@ This project is open source and available for educational and demonstration purp
 ---
 
 **Last Updated**: January 2026  
-**Version**: 4.0.0 (Wind Streamlines + Real Data Sources)  
+**Version**: 5.0.0 (3D Globe with Cesium.js)  
 **Status**: Production Ready  
-**Next Major Version**: v5.0.0 - 3D Globe with Cesium.js (Planned)
+**Milestone**: Complete migration from 2D Leaflet to 3D Cesium globe visualization!
