@@ -105,7 +105,7 @@ function App() {
         }
     };
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             // Fetch real data sources
             // ✅ Earthquakes - USGS Earthquake API
@@ -143,6 +143,8 @@ function App() {
                     ];
                     console.log('🧪 Added sample hurricane data (toggle enabled)');
                 }
+            } else {
+                console.log('ℹ️  Simulated data toggle OFF - showing only real data');
             }
 
             // Update state with new data points
@@ -159,7 +161,7 @@ function App() {
             console.error('Error loading data:', error);
             setLoading(false);
         }
-    };
+    }, [showSimulatedData]); // Add showSimulatedData as dependency
 
     const updateTimestamp = () => {
         const now = new Date();
@@ -182,18 +184,7 @@ function App() {
         }, 60000);
 
         return () => clearInterval(interval);
-    }, []);
-
-    // Reload data when simulated data toggle changes
-    useEffect(() => {
-        if (!loading) {
-            // Clear existing markers before reloading
-            if (markerManagerRef.current) {
-                markerManagerRef.current.clear();
-            }
-            loadData();
-        }
-    }, [showSimulatedData]);
+    }, [loadData]); // Include loadData as dependency since it now uses useCallback
 
     // Calculate counts by type
     const getCountsByType = (): Record<string, number> => {

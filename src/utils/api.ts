@@ -499,8 +499,9 @@ export async function fetchHurricanes(): Promise<APIResponse<RawHurricane[]>> {
         // Sample data can be enabled via the "Simulated Data" toggle in the Legend
         return { success: true, data: hurricanes };
     } catch (error) {
-        console.error('Error fetching hurricanes from NOAA, falling back to sample data:', error);
-        return { success: false, data: generateSampleHurricanes() };
+        console.error('Error fetching hurricanes from NOAA:', error);
+        // Return empty array on error - sample data is controlled by the toggle
+        return { success: false, data: [] };
     }
 }
 
