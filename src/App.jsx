@@ -3,6 +3,7 @@ import './App.css';
 import Header from './components/Header';
 import Map from './components/Map';
 import Legend from './components/Legend';
+import EventLog from './components/EventLog';
 import { fetchEarthquakes, fetchISS, fetchVolcanic, fetchHurricanes, fetchTornadoes, fetchAurora, fetchWindPatterns, fetchPrecipitation, fetchRocketLaunches, fetchConflicts, fetchProtests, fetchSocialUnrest, fetchDiseaseOutbreaks } from './utils/api';
 
 function App() {
@@ -287,6 +288,7 @@ function App() {
                         previousDiseaseIds={previousDiseaseIdsRef.current}
                     />
                     <Legend />
+                    <EventLog />
                 </>
             )}
         </div>
