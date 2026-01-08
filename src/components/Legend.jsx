@@ -33,6 +33,110 @@ export default function Legend() {
                 </div>
             </div>
             
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Volcanic Activity (Alert Level)</strong>
+                <div className="legend-item">
+                    <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderBottom: '9px solid #ff0000' }}></div>
+                    <span>Warning</span>
+                </div>
+                <div className="legend-item">
+                    <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderBottom: '9px solid #ff6600' }}></div>
+                    <span>Watch</span>
+                </div>
+                <div className="legend-item">
+                    <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderBottom: '9px solid #ffcc00' }}></div>
+                    <span>Advisory</span>
+                </div>
+                <div className="legend-item">
+                    <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderBottom: '9px solid #888888' }}></div>
+                    <span>Normal</span>
+                </div>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Hurricanes (Category)</strong>
+                <div className="legend-item">
+                    <div style={{ fontSize: '1.2rem' }}>🌀</div>
+                    <span>Category 1-5 (Saffir-Simpson)</span>
+                </div>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Tornadoes (EF Scale)</strong>
+                <div className="legend-item">
+                    <div style={{ fontSize: '1.2rem' }}>🌪️</div>
+                    <span>EF0-EF5 intensity</span>
+                </div>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Aurora Activity</strong>
+                <div className="legend-item">
+                    <div className="legend-color" style={{ background: '#00ff88' }}></div>
+                    <span>KP Index 1-9</span>
+                </div>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Wind Patterns</strong>
+                <div className="legend-item">
+                    <div style={{ fontSize: '1rem' }}>💨</div>
+                    <span>Directional arrows</span>
+                </div>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Precipitation</strong>
+                <div className="legend-item">
+                    <div style={{ fontSize: '1rem' }}>🌧️</div>
+                    <span>Rain</span>
+                </div>
+                <div className="legend-item">
+                    <div style={{ fontSize: '1rem' }}>❄️</div>
+                    <span>Snow</span>
+                </div>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Rocket Launches</strong>
+                <div className="legend-item">
+                    <div style={{ fontSize: '1rem' }}>🚀</div>
+                    <span>Launch sites</span>
+                </div>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Active Conflicts</strong>
+                <div className="legend-item">
+                    <div style={{ fontSize: '1rem' }}>⚔️</div>
+                    <span>Conflict zones</span>
+                </div>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Protests</strong>
+                <div className="legend-item">
+                    <div style={{ fontSize: '1rem' }}>✊</div>
+                    <span>Demonstrations</span>
+                </div>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Social Unrest</strong>
+                <div className="legend-item">
+                    <div style={{ fontSize: '1rem' }}>⚠️</div>
+                    <span>Tension areas</span>
+                </div>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ fontSize: '0.875rem' }}>Disease Outbreaks</strong>
+                <div className="legend-item">
+                    <div style={{ fontSize: '1rem' }}>🦠</div>
+                    <span>Active outbreaks</span>
+                </div>
+            </div>
+            
             <div>
                 <strong style={{ fontSize: '0.875rem' }}>Space Station</strong>
                 <div className="legend-item">
