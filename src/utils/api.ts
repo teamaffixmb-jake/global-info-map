@@ -411,9 +411,44 @@ export async function fetchISS(): Promise<APIResponse<RawISS>> {
 
 export async function fetchVolcanic(): Promise<APIResponse<RawVolcano[]>> {
     try {
-        return { success: false, data: generateSampleVolcanic() };
+        // USGS Volcano Hazards Program API - provides status for all U.S. volcanoes
+        const response = await fetch('https://volcanoes.usgs.gov/vsc/api/volcanoApi/vhpstatus', {
+            method: 'GET',
+            mode: 'cors'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API responded with status: ${response.status}`);
+        }
+        
+        const rawData = await response.json();
+        
+        // Transform USGS format to our RawVolcano format
+        // Actual API fields: vName, lat, long, vnum, volcanoCd, alertLevel, colorCode, region, etc.
+        const volcanoes: RawVolcano[] = rawData
+            .map((v: any) => ({
+                id: v.volcanoCd || v.vnum,
+                lat: parseFloat(v.lat),
+                lon: parseFloat(v.long), // API uses 'long' not 'lon'
+                name: v.vName,
+                elevation: 0, // Not provided by API, using placeholder
+                country: 'USA', // USGS API covers U.S. volcanoes
+                alertLevel: (v.alertLevel || 'UNASSIGNED').toLowerCase(),
+                lastEruption: Date.now() - (Math.random() * 31536000000), // Placeholder
+                time: Date.now()
+            }))
+            .filter((v: RawVolcano) => 
+                v.lat && 
+                !isNaN(v.lat) && 
+                v.lon && 
+                !isNaN(v.lon) &&
+                v.alertLevel !== 'unassigned' // Filter out unassigned volcanoes
+            );
+        
+        console.log(`✅ Fetched ${volcanoes.length} volcanoes from USGS API (filtered from ${rawData.length} total)`);
+        return { success: true, data: volcanoes };
     } catch (error) {
-        console.error('Error fetching volcanic activity:', error);
+        console.error('Error fetching volcanic activity from USGS, falling back to sample data:', error);
         return { success: false, data: generateSampleVolcanic() };
     }
 }

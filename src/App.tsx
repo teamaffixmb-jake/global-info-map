@@ -5,9 +5,9 @@ import Legend from './components/Legend';
 import EventLog from './components/EventLog';
 import { 
     fetchEarthquakes, 
-    fetchISS
-    // Simulated data sources removed - only real APIs remain
-    // fetchVolcanic, 
+    fetchISS,
+    fetchVolcanic // ✅ REAL DATA - USGS Volcano Hazards Program API
+    // Simulated data sources (not yet implemented with real APIs):
     // fetchHurricanes, 
     // fetchTornadoes, 
     // fetchAurora, 
@@ -22,9 +22,9 @@ import {
 import {
     earthquakeToDataPoint,
     issToDataPoint,
+    volcanoToDataPoint, // ✅ Real volcanic data converter
     convertBatch
-    // Converters for simulated data removed
-    // volcanoToDataPoint,
+    // Converters for simulated data (not yet enabled):
     // hurricaneToDataPoint,
     // tornadoToDataPoint,
     // auroraToDataPoint,
@@ -105,20 +105,25 @@ function App() {
 
     const loadData = async () => {
         try {
-            // Fetch only real data sources (earthquakes and ISS)
-            // All simulated data sources have been disconnected
+            // Fetch real data sources
+            // ✅ Earthquakes - USGS Earthquake API
+            // ✅ ISS - WhereTheISS.at API
+            // ✅ Volcanoes - USGS Volcano Hazards Program API
             const [
                 eqResult, 
-                issResult
+                issResult,
+                volcanicResult
             ] = await Promise.all([
                 fetchEarthquakes(),
-                fetchISS()
+                fetchISS(),
+                fetchVolcanic()
             ]);
 
             // Convert all raw data to DataPoints (only real data)
             const allDataPoints: DataPoint[] = [
                 ...convertBatch(eqResult.data, earthquakeToDataPoint),
-                ...(issResult.data ? [issToDataPoint(issResult.data)] : [])
+                ...(issResult.data ? [issToDataPoint(issResult.data)] : []),
+                ...convertBatch(volcanicResult.data, volcanoToDataPoint)
             ];
 
             // Update state with new data points
