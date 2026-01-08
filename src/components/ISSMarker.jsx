@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
 
-export default function ISSMarker({ map, issData, previousISSLocation }) {
+export default function ISSMarker({ map, issData, previousISSLocation, addEvent }) {
     const markerRef = useRef(null);
 
     useEffect(() => {
@@ -30,6 +30,8 @@ export default function ISSMarker({ map, issData, previousISSLocation }) {
             fillOpacity: hasMoved ? 1 : 0.9
         }).addTo(map);
 
+        markerRef.current._markerId = 'iss-current';
+
         markerRef.current.bindPopup(`
             <strong>🛰️ International Space Station${hasMoved ? ' 🆕 MOVED!' : ''}</strong><br>
             Latitude: ${issData.lat.toFixed(2)}°<br>
@@ -42,6 +44,18 @@ export default function ISSMarker({ map, issData, previousISSLocation }) {
         // Animate if moved
         if (hasMoved) {
             animateCircleBounce(markerRef.current, baseRadius);
+            // Log significant ISS movement
+            if (addEvent) {
+                addEvent(
+                    'iss-move',
+                    '🛰️',
+                    'ISS Position Updated',
+                    `Lat: ${issData.lat.toFixed(2)}°, Lon: ${issData.lon.toFixed(2)}°`,
+                    issData.lat,
+                    issData.lon,
+                    { markerId: 'iss-current' }
+                );
+            }
         } else {
             // Always pulse the ISS since it's constantly moving
             animateCirclePulse(markerRef.current, baseRadius);

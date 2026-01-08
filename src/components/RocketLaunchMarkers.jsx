@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { formatAge } from '../utils/helpers';
 import { animateCircleBounce } from '../utils/animations';
 
-export default function RocketLaunchMarkers({ map, rocketData, previousRocketIds }) {
+export default function RocketLaunchMarkers({ map, rocketData, previousRocketIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
@@ -35,6 +35,8 @@ export default function RocketLaunchMarkers({ map, rocketData, previousRocketIds
 
             const marker = L.marker([rocket.lat, rocket.lon], { icon }).addTo(map);
 
+            marker._markerId = eventId;
+
             const launchDate = new Date(rocket.launchTime).toLocaleString();
             marker.bindPopup(`
                 <strong>🚀 ${rocket.mission}${isNew ? ' 🆕 NEW!' : ''}</strong><br>
@@ -56,6 +58,18 @@ export default function RocketLaunchMarkers({ map, rocketData, previousRocketIds
                 }).addTo(map);
                 animateCircleBounce(tempCircle, 10);
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
+                // Log event
+                if (addEvent) {
+                    addEvent(
+                        'new-rocket',
+                        '🚀',
+                        `${rocket.mission}`,
+                        `${rocket.rocketType} from ${rocket.site}, ${rocket.country}`,
+                        rocket.lat,
+                        rocket.lon,
+                        { markerId: eventId }
+                    );
+                }
             }
 
             markersRef.current.push(marker);

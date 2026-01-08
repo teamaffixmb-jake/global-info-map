@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { getWindColor } from '../utils/helpers';
 
-export default function WindPatternMarkers({ map, windData, previousWindIds }) {
+export default function WindPatternMarkers({ map, windData, previousWindIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {

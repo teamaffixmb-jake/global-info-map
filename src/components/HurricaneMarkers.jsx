@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { getHurricaneColor, formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
 
-export default function HurricaneMarkers({ map, hurricaneData, previousHurricaneIds }) {
+export default function HurricaneMarkers({ map, hurricaneData, previousHurricaneIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
@@ -41,6 +41,8 @@ export default function HurricaneMarkers({ map, hurricaneData, previousHurricane
 
             const marker = L.marker([hurricane.lat, hurricane.lon], { icon }).addTo(map);
 
+            marker._markerId = eventId;
+
             marker.bindPopup(`
                 <strong>🌀 ${hurricane.name} - Category ${hurricane.category}${isVeryRecent ? ' 🆕 VERY RECENT!' : ''}</strong><br>
                 Wind Speed: ${hurricane.windSpeed} mph<br>
@@ -61,6 +63,18 @@ export default function HurricaneMarkers({ map, hurricaneData, previousHurricane
                 }).addTo(map);
                 animateCircleBounce(tempCircle, baseRadius);
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
+                // Log event
+                if (addEvent) {
+                    addEvent(
+                        'new-hurricane',
+                        '🌀',
+                        `${hurricane.name} - Cat ${hurricane.category}`,
+                        `Winds: ${hurricane.windSpeed} mph, Pressure: ${hurricane.pressure} mb`,
+                        hurricane.lat,
+                        hurricane.lon,
+                        { markerId: eventId }
+                    );
+                }
             } else if (isVeryRecent) {
                 const tempCircle = L.circleMarker([hurricane.lat, hurricane.lon], {
                     radius: baseRadius,

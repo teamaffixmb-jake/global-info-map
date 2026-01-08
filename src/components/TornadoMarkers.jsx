@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { getTornadoColor, getTornadoSize, formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
 
-export default function TornadoMarkers({ map, tornadoData, previousTornadoIds }) {
+export default function TornadoMarkers({ map, tornadoData, previousTornadoIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
@@ -41,6 +41,8 @@ export default function TornadoMarkers({ map, tornadoData, previousTornadoIds })
 
             const marker = L.marker([tornado.lat, tornado.lon], { icon }).addTo(map);
 
+            marker._markerId = eventId;
+
             marker.bindPopup(`
                 <strong>🌪️ Tornado - EF${tornado.intensity}${isVeryRecent ? ' 🆕 VERY RECENT!' : ''}</strong><br>
                 Location: ${tornado.location}<br>
@@ -60,6 +62,18 @@ export default function TornadoMarkers({ map, tornadoData, previousTornadoIds })
                 }).addTo(map);
                 animateCircleBounce(tempCircle, baseRadius);
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
+                // Log event
+                if (addEvent) {
+                    addEvent(
+                        'new-tornado',
+                        '🌪️',
+                        `EF${tornado.intensity} Tornado`,
+                        `${tornado.location}`,
+                        tornado.lat,
+                        tornado.lon,
+                        { markerId: eventId }
+                    );
+                }
             } else if (isVeryRecent) {
                 const tempCircle = L.circleMarker([tornado.lat, tornado.lon], {
                     radius: baseRadius,

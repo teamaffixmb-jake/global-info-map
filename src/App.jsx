@@ -22,6 +22,8 @@ function App() {
     const [diseaseData, setDiseaseData] = useState([]);
     const [lastUpdate, setLastUpdate] = useState('');
     const [loading, setLoading] = useState(true);
+    const [events, setEvents] = useState([]);
+    const [mapController, setMapController] = useState(null);
 
     // Track previous data to detect new events
     const previousEarthquakeIdsRef = useRef(new Set());
@@ -37,6 +39,27 @@ function App() {
     const previousProtestIdsRef = useRef(new Set());
     const previousUnrestIdsRef = useRef(new Set());
     const previousDiseaseIdsRef = useRef(new Set());
+
+    const addEvent = (type, emoji, title, message, lat, lon, data) => {
+        const event = {
+            id: `${type}-${Date.now()}-${Math.random()}`,
+            type,
+            emoji,
+            title,
+            message,
+            timestamp: Date.now(),
+            lat,
+            lon,
+            data
+        };
+        setEvents(prevEvents => [...prevEvents, event].slice(-100)); // Keep last 100 events
+    };
+
+    const handleEventClick = (event) => {
+        if (mapController && event.lat !== undefined && event.lon !== undefined) {
+            mapController.zoomTo(event.lat, event.lon, event.data);
+        }
+    };
 
     const loadData = async () => {
         try {
@@ -286,9 +309,11 @@ function App() {
                         previousProtestIds={previousProtestIdsRef.current}
                         previousUnrestIds={previousUnrestIdsRef.current}
                         previousDiseaseIds={previousDiseaseIdsRef.current}
+                        addEvent={addEvent}
+                        setMapController={setMapController}
                     />
                     <Legend />
-                    <EventLog />
+                    <EventLog events={events} onEventClick={handleEventClick} />
                 </>
             )}
         </div>

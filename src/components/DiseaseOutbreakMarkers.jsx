@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { getDiseaseColor, formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
 
-export default function DiseaseOutbreakMarkers({ map, diseaseData, previousDiseaseIds }) {
+export default function DiseaseOutbreakMarkers({ map, diseaseData, previousDiseaseIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
@@ -41,6 +41,8 @@ export default function DiseaseOutbreakMarkers({ map, diseaseData, previousDisea
 
             const marker = L.marker([disease.lat, disease.lon], { icon }).addTo(map);
 
+            marker._markerId = eventId;
+
             marker.bindPopup(`
                 <strong>🦠 ${disease.disease} - ${disease.location}${isVeryRecent ? ' 🆕 RECENT!' : ''}</strong><br>
                 Cases: ${disease.cases.toLocaleString()}<br>
@@ -61,6 +63,18 @@ export default function DiseaseOutbreakMarkers({ map, diseaseData, previousDisea
                 }).addTo(map);
                 animateCircleBounce(tempCircle, size);
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
+                // Log event
+                if (addEvent) {
+                    addEvent(
+                        'new-disease',
+                        '🦠',
+                        `${disease.disease} Outbreak`,
+                        `${disease.location}, ${disease.cases.toLocaleString()} cases`,
+                        disease.lat,
+                        disease.lon,
+                        { markerId: eventId }
+                    );
+                }
             } else if (isVeryRecent) {
                 const tempCircle = L.circleMarker([disease.lat, disease.lon], {
                     radius: size,

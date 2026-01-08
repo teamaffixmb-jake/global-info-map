@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { getAuroraColor, formatAge } from '../utils/helpers';
 import { animateCirclePulse } from '../utils/animations';
 
-export default function AuroraMarkers({ map, auroraData, previousAuroraIds }) {
+export default function AuroraMarkers({ map, auroraData, previousAuroraIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
@@ -36,12 +36,27 @@ export default function AuroraMarkers({ map, auroraData, previousAuroraIds }) {
                 fillOpacity: opacity * 0.6
             }).addTo(map);
 
+            circle._markerId = eventId;
+
             circle.bindPopup(`
                 <strong>🌌 Aurora - ${aurora.name}${isNew ? ' 🆕 NEW!' : ''}</strong><br>
                 KP Index: ${aurora.kpIndex}/9<br>
                 Visibility: ${aurora.visibility}<br>
                 Age: ${formatAge(now - aurora.time)}
             `);
+            
+            // Log new aurora events
+            if (isNew && previousAuroraIds.size > 0 && addEvent) {
+                addEvent(
+                    'new-aurora',
+                    '🌌',
+                    `Aurora - ${aurora.name}`,
+                    `KP Index: ${aurora.kpIndex}/9, Visibility: ${aurora.visibility}`,
+                    aurora.lat,
+                    aurora.lon,
+                    { markerId: eventId }
+                );
+            }
             
             // Always pulse aurora for visual effect
             animateCirclePulse(circle, baseRadius);

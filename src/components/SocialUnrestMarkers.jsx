@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { formatAge } from '../utils/helpers';
 import { animateCirclePulse } from '../utils/animations';
 
-export default function SocialUnrestMarkers({ map, unrestData, previousUnrestIds }) {
+export default function SocialUnrestMarkers({ map, unrestData, previousUnrestIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
@@ -38,6 +38,9 @@ export default function SocialUnrestMarkers({ map, unrestData, previousUnrestIds
 
             const marker = L.marker([unrest.lat, unrest.lon], { icon }).addTo(map);
 
+            marker._markerId = eventId;
+            const isNew = !previousUnrestIds.has(eventId);
+
             marker.bindPopup(`
                 <strong>⚠️ ${unrest.location}, ${unrest.country}</strong><br>
                 Severity: ${unrest.severity}<br>
@@ -45,6 +48,19 @@ export default function SocialUnrestMarkers({ map, unrestData, previousUnrestIds
                 Affected: ~${unrest.affectedPopulation.toLocaleString()} people<br>
                 Age: ${formatAge(now - unrest.time)}
             `);
+            
+            // Log new unrest events
+            if (isNew && previousUnrestIds.size > 0 && addEvent) {
+                addEvent(
+                    'new-unrest',
+                    '⚠️',
+                    `Social Unrest - ${unrest.location}`,
+                    `${unrest.severity} severity, ${unrest.type}`,
+                    unrest.lat,
+                    unrest.lon,
+                    { markerId: eventId }
+                );
+            }
             
             // Pulse for ongoing unrest
             const tempCircle = L.circleMarker([unrest.lat, unrest.lon], {

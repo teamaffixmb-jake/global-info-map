@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
 
-export default function ConflictMarkers({ map, conflictData, previousConflictIds }) {
+export default function ConflictMarkers({ map, conflictData, previousConflictIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
@@ -41,6 +41,8 @@ export default function ConflictMarkers({ map, conflictData, previousConflictIds
 
             const marker = L.marker([conflict.lat, conflict.lon], { icon }).addTo(map);
 
+            marker._markerId = eventId;
+
             marker.bindPopup(`
                 <strong>⚔️ ${conflict.name}${isVeryRecent ? ' 🆕 VERY RECENT!' : ''}</strong><br>
                 Type: ${conflict.type}<br>
@@ -61,6 +63,18 @@ export default function ConflictMarkers({ map, conflictData, previousConflictIds
                 }).addTo(map);
                 animateCircleBounce(tempCircle, size);
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
+                // Log event
+                if (addEvent) {
+                    addEvent(
+                        'new-conflict',
+                        '⚔️',
+                        `${conflict.name} - ${conflict.intensity}`,
+                        `${conflict.type}, ${conflict.recentIncidents} recent incidents`,
+                        conflict.lat,
+                        conflict.lon,
+                        { markerId: eventId }
+                    );
+                }
             } else if (isVeryRecent) {
                 const tempCircle = L.circleMarker([conflict.lat, conflict.lon], {
                     radius: size,

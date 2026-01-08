@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
 
-export default function ProtestMarkers({ map, protestData, previousProtestIds }) {
+export default function ProtestMarkers({ map, protestData, previousProtestIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
@@ -40,6 +40,8 @@ export default function ProtestMarkers({ map, protestData, previousProtestIds })
 
             const marker = L.marker([protest.lat, protest.lon], { icon }).addTo(map);
 
+            marker._markerId = eventId;
+
             marker.bindPopup(`
                 <strong>✊ ${protest.city}, ${protest.country}${isVeryRecent ? ' 🆕 VERY RECENT!' : ''}</strong><br>
                 Cause: ${protest.cause}<br>
@@ -61,6 +63,18 @@ export default function ProtestMarkers({ map, protestData, previousProtestIds })
                 }).addTo(map);
                 animateCircleBounce(tempCircle, size / 2);
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
+                // Log event
+                if (addEvent) {
+                    addEvent(
+                        'new-protest',
+                        '✊',
+                        `Protest in ${protest.city}`,
+                        `${protest.cause}, ~${protest.size.toLocaleString()} people`,
+                        protest.lat,
+                        protest.lon,
+                        { markerId: eventId }
+                    );
+                }
             } else if (isVeryRecent) {
                 const tempCircle = L.circleMarker([protest.lat, protest.lon], {
                     radius: size / 2,

@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { getVolcanicAlertColor, getVolcanicSize, formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
 
-export default function VolcanicMarkers({ map, volcanicData, previousVolcanicIds }) {
+export default function VolcanicMarkers({ map, volcanicData, previousVolcanicIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
@@ -50,6 +50,8 @@ export default function VolcanicMarkers({ map, volcanicData, previousVolcanicIds
                 icon: volcanoIcon
             }).addTo(map);
 
+            marker._markerId = eventId;
+
             const lastEruptionDate = new Date(volcano.lastEruption).toLocaleDateString();
             const ageText = isVeryRecent ? ' 🆕 VERY RECENT!' : '';
             marker.bindPopup(`
@@ -75,6 +77,18 @@ export default function VolcanicMarkers({ map, volcanicData, previousVolcanicIds
                 }).addTo(map);
                 animateCircleBounce(tempCircle, baseRadius);
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
+                // Log event
+                if (addEvent) {
+                    addEvent(
+                        'new-volcanic',
+                        '🌋',
+                        `${volcano.name} - ${volcano.alertLevel.toUpperCase()}`,
+                        `${volcano.country}, Elevation: ${volcano.elevation}m`,
+                        volcano.lat,
+                        volcano.lon,
+                        { markerId: eventId }
+                    );
+                }
             } else if (isVeryRecent) {
                 const tempCircle = L.circleMarker([volcano.lat, volcano.lon], {
                     radius: baseRadius,

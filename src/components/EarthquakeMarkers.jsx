@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { getMagnitudeColor, getMagnitudeRadius, formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
 
-export default function EarthquakeMarkers({ map, earthquakeData, previousEarthquakeIds }) {
+export default function EarthquakeMarkers({ map, earthquakeData, previousEarthquakeIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
@@ -46,6 +46,9 @@ export default function EarthquakeMarkers({ map, earthquakeData, previousEarthqu
                 fillOpacity: isNew ? 0.9 : 0.6
             }).addTo(map);
 
+            // Set marker ID for event log click handling
+            circle._markerId = eventId;
+
             const ageText = isVeryRecent ? ' 🆕 VERY RECENT!' : (isRecent ? ' ⏰ Recent' : '');
             circle.bindPopup(`
                 <strong>🌍 Earthquake - Magnitude: ${mag}${ageText}</strong><br>
@@ -58,6 +61,18 @@ export default function EarthquakeMarkers({ map, earthquakeData, previousEarthqu
             if (isNew && previousEarthquakeIds.size > 0) {
                 circle.openPopup();
                 animateCircleBounce(circle, baseRadius);
+                // Log event
+                if (addEvent) {
+                    addEvent(
+                        'new-earthquake',
+                        '🌍',
+                        `Magnitude ${mag} Earthquake`,
+                        `${place}`,
+                        lat,
+                        lon,
+                        { markerId: eventId }
+                    );
+                }
             } else if (isVeryRecent) {
                 animateCirclePulse(circle, baseRadius);
             }

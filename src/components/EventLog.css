@@ -74,7 +74,7 @@
     color: #d1d5db;
 }
 
-/* Event entry styles for future implementation */
+/* Event entry styles */
 .event-entry {
     padding: 0.5rem;
     margin: 0.25rem 0;
@@ -83,6 +83,12 @@
     font-size: 0.75rem;
     line-height: 1.4;
     border-left: 3px solid transparent;
+    transition: all 0.2s;
+}
+
+.event-entry:hover {
+    background: rgba(75, 85, 99, 0.6);
+    transform: translateX(2px);
 }
 
 .event-entry.new-earthquake {

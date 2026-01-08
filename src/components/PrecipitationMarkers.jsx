@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { formatAge } from '../utils/helpers';
 
-export default function PrecipitationMarkers({ map, precipitationData, previousPrecipitationIds }) {
+export default function PrecipitationMarkers({ map, precipitationData, previousPrecipitationIds, addEvent }) {
     const markersRef = useRef([]);
 
     useEffect(() => {
