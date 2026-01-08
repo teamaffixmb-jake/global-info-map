@@ -120,3 +120,4 @@ export function getDiseaseColor(severity: string): string {
     return '#ffcc00';
 }
 
+

@@ -170,3 +170,4 @@ export function getPrecipitationSeverity(intensity: number): SEVERITY {
     return SEVERITY.LOW;
 }
 
+

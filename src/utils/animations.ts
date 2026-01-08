@@ -50,3 +50,4 @@ export function animateCirclePulse(circle: L.CircleMarker & { _pulseInterval?: N
     return pulseInterval;
 }
 
+
