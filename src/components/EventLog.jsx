@@ -1,9 +1,17 @@
+import { useState } from 'react';
 import './EventLog.css';
 
 export default function EventLog() {
+    const [isMinimized, setIsMinimized] = useState(false);
+
     return (
-        <div id="event-log" className="show">
-            <h3 style={{ marginBottom: '0.75rem', fontSize: '1rem' }}>📊 Activity Log</h3>
+        <div id="event-log" className={isMinimized ? 'show minimized' : 'show'}>
+            <div className="event-log-header" onClick={() => setIsMinimized(!isMinimized)}>
+                <h3>📊 Activity Log</h3>
+                <button className="toggle-button" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}>
+                    {isMinimized ? '▲' : '▼'}
+                </button>
+            </div>
             <div className="event-log-content">
                 <div className="event-log-placeholder">
                     <p style={{ color: '#9ca3af', fontSize: '0.875rem', textAlign: 'center', padding: '2rem 1rem' }}>

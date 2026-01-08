@@ -1,27 +1,66 @@
 #event-log {
     position: absolute;
-    top: 100px;
+    bottom: 20px;
     left: 20px;
     width: 300px;
-    max-height: calc(100vh - 140px);
-    background: #1f2937;
+    max-height: 60vh;
+    background: rgba(31, 41, 55, 0.85);
+    backdrop-filter: blur(10px);
     border-radius: 0.5rem;
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     display: none;
     z-index: 2000;
     overflow: hidden;
     flex-direction: column;
+    transition: all 0.3s ease;
 }
 
 #event-log.show {
     display: flex;
 }
 
-#event-log h3 {
-    padding: 1rem 1rem 0.5rem 1rem;
+#event-log.minimized {
+    max-height: 50px;
+}
+
+#event-log.minimized .event-log-content {
+    display: none;
+}
+
+.event-log-header {
+    padding: 1rem;
     margin: 0;
-    border-bottom: 1px solid #374151;
+    border-bottom: 1px solid rgba(55, 65, 81, 0.5);
     flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.event-log-header:hover {
+    background: rgba(55, 65, 81, 0.3);
+}
+
+.event-log-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.toggle-button {
+    background: rgba(55, 65, 81, 0.5);
+    border: none;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: background 0.2s;
+}
+
+.toggle-button:hover {
+    background: rgba(75, 85, 99, 0.7);
 }
 
 .event-log-content {

@@ -1,9 +1,18 @@
+import { useState } from 'react';
 import './Legend.css';
 
 export default function Legend() {
+    const [isMinimized, setIsMinimized] = useState(false);
+
     return (
-        <div id="legend" className="show">
-            <h3 style={{ marginBottom: '0.75rem' }}>Data Legend</h3>
+        <div id="legend" className={isMinimized ? 'show minimized' : 'show'}>
+            <div className="legend-header" onClick={() => setIsMinimized(!isMinimized)}>
+                <h3>Data Legend</h3>
+                <button className="toggle-button" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}>
+                    {isMinimized ? '▲' : '▼'}
+                </button>
+            </div>
+            <div className="legend-content">
             
             <div style={{ marginBottom: '1rem', padding: '0.5rem', background: '#374151', borderRadius: '0.25rem' }}>
                 <strong style={{ fontSize: '0.875rem', color: '#fbbf24' }}>✨ Animation Key</strong>
@@ -143,6 +152,7 @@ export default function Legend() {
                     <div className="legend-color" style={{ background: '#a855f7', border: '2px solid white' }}></div>
                     <span>ISS Position</span>
                 </div>
+            </div>
             </div>
         </div>
     );
