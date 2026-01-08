@@ -88,3 +88,19 @@ body {
     }
 }
 
+/* Wind Streamlines */
+.wind-streamline {
+    /* Smooth, flowing appearance */
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    /* Subtle shadow for depth */
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.3));
+    /* Smooth transitions when updating */
+    transition: opacity 0.3s ease;
+}
+
+.wind-streamline:hover {
+    opacity: 1 !important;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+}
+

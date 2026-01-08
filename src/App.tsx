@@ -25,8 +25,8 @@ import {
     issToDataPoint,
     volcanoToDataPoint, // ✅ Real volcanic data converter
     hurricaneToDataPoint, // ✅ Real hurricane data converter
-    windToDataPoint, // ✅ Real wind data converter (sparse grid)
     convertBatch
+    // Note: Wind data is now rendered as streamlines directly, not as DataPoints
     // Converters for simulated data (not yet enabled):
     // tornadoToDataPoint,
     // auroraToDataPoint,
@@ -174,16 +174,17 @@ function App() {
                 });
                 
                 if (windResult.data.length > 0) {
-                    setLoadingStatus('💨 Rendering wind data...');
-                    const windDataPoints = convertBatch(windResult.data, windToDataPoint);
+                    setLoadingStatus('💨 Generating wind streamlines...');
                     
-                    setDataPoints(prevPoints => [...prevPoints, ...windDataPoints]);
-                    
+                    // Render wind as streamlines instead of individual markers
                     if (markerManagerRef.current) {
-                        markerManagerRef.current.processDataPoints(windDataPoints);
+                        markerManagerRef.current.renderWindStreamlines(
+                            windResult.data,
+                            setLoadingStatus
+                        );
                     }
                     
-                    console.log(`✅ Successfully loaded ${windDataPoints.length} wind data points`);
+                    console.log(`✅ Successfully loaded and rendered wind streamlines`);
                 } else {
                     console.warn('⚠️ No wind data loaded - API may have failed');
                 }

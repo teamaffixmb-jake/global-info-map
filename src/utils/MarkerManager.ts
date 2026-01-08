@@ -10,6 +10,7 @@
 
 import * as L from 'leaflet';
 import { DataPoint, DataSourceType } from '../models/DataPoint';
+import { RawWind } from '../types/raw';
 import { getMagnitudeRadius, getMagnitudeColor } from './helpers';
 import { getVolcanicAlertColor, getVolcanicSize } from './helpers';
 import { getHurricaneColor, getHurricaneSize } from './helpers';
@@ -23,6 +24,12 @@ import { getUnrestColor } from './helpers';
 import { getDiseaseColor } from './helpers';
 import { animateCircleBounce } from './animations';
 import { formatAge } from './helpers';
+import { 
+    traceStreamline, 
+    generateSeedPoints, 
+    getWindColor as getStreamlineColor,
+    getWindOpacity 
+} from './streamlines';
 
 // ===== Type Definitions =====
 
@@ -50,6 +57,8 @@ export class MarkerManager {
     private severityThreshold: number;
     private markers: Map<string, MarkerEntry>;
     private loggedEventIds: Set<string>;
+    private streamlines: L.Polyline[];
+    private windGridData: RawWind[];
 
     constructor(map: L.Map, addEventCallback: AddEventCallback | null = null, severityThreshold: number = 1) {
         this.map = map;
@@ -57,6 +66,8 @@ export class MarkerManager {
         this.severityThreshold = severityThreshold;
         this.markers = new Map();
         this.loggedEventIds = new Set();
+        this.streamlines = [];
+        this.windGridData = [];
     }
 
     /**
@@ -631,7 +642,7 @@ export class MarkerManager {
     }
 
     /**
-     * Clear all markers
+     * Clear all markers and streamlines
      */
     clear(): void {
         this.markers.forEach((value) => {
@@ -651,6 +662,95 @@ export class MarkerManager {
         });
         this.markers.clear();
         this.loggedEventIds.clear();
+        
+        // Clear streamlines
+        this.streamlines.forEach(line => {
+            if (this.map.hasLayer(line)) {
+                this.map.removeLayer(line);
+            }
+        });
+        this.streamlines = [];
+        this.windGridData = [];
+    }
+
+    /**
+     * Render wind streamlines instead of individual markers
+     * This creates flowing curves that visualize wind patterns
+     */
+    renderWindStreamlines(windData: RawWind[], setLoadingMessage?: (msg: string) => void): void {
+        // Clear existing streamlines
+        this.streamlines.forEach(line => {
+            if (this.map.hasLayer(line)) {
+                this.map.removeLayer(line);
+            }
+        });
+        this.streamlines = [];
+        
+        // Store wind grid data for interpolation
+        this.windGridData = windData;
+        
+        if (windData.length === 0) {
+            console.log('No wind data available for streamlines');
+            return;
+        }
+        
+        if (setLoadingMessage) {
+            setLoadingMessage('Generating wind streamlines...');
+        }
+        
+        console.log(`🌬️ Generating streamlines from ${windData.length} grid points...`);
+        
+        // Generate seed points (more sparse than the grid to avoid overcrowding)
+        const seedPoints = generateSeedPoints(30, 8); // 30° spacing with 8° jitter
+        
+        let streamlineCount = 0;
+        
+        // Trace streamlines from each seed point
+        for (const seed of seedPoints) {
+            const streamline = traceStreamline(
+                seed.lat,
+                seed.lon,
+                windData,
+                40,   // max steps
+                2.5   // step size in degrees
+            );
+            
+            if (streamline && streamline.points.length >= 8) {
+                // Convert streamline points to Leaflet lat/lng array
+                const latLngs: L.LatLngExpression[] = streamline.points.map(p => [p.lat, p.lon]);
+                
+                // Create polyline with color based on average speed
+                const color = getStreamlineColor(streamline.avgSpeed);
+                const opacity = getWindOpacity(streamline.avgSpeed);
+                const weight = Math.min(2 + streamline.avgSpeed / 20, 4); // Thicker for stronger winds
+                
+                const polyline = L.polyline(latLngs, {
+                    color: color,
+                    opacity: opacity,
+                    weight: weight,
+                    smoothFactor: 2.0, // Smooth the line
+                    className: 'wind-streamline'
+                });
+                
+                // Add popup with wind info
+                const midPoint = streamline.points[Math.floor(streamline.points.length / 2)];
+                polyline.bindPopup(`
+                    <strong>🌬️ Wind Flow</strong><br>
+                    Avg Speed: ${Math.round(streamline.avgSpeed)} mph<br>
+                    Coordinates: ${midPoint.lat.toFixed(1)}°, ${midPoint.lon.toFixed(1)}°
+                `);
+                
+                polyline.addTo(this.map);
+                this.streamlines.push(polyline);
+                streamlineCount++;
+            }
+        }
+        
+        console.log(`✅ Rendered ${streamlineCount} wind streamlines`);
+        
+        if (setLoadingMessage) {
+            setLoadingMessage('');
+        }
     }
 
     /**
