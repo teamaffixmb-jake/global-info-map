@@ -47,6 +47,7 @@ export type AddEventCallback = (
 interface MarkerEntry {
     marker: L.Marker | L.CircleMarker;
     dataPoint: DataPoint;
+    timeLabel?: L.Marker; // Optional time label for earthquakes
 }
 
 // ===== MarkerManager Class =====
@@ -126,7 +127,14 @@ export class MarkerManager {
         marker.addTo(this.map);
         (marker as any)._markerId = dataPoint.id;
         
-        this.markers.set(dataPoint.id, { marker, dataPoint });
+        // Add time label if it exists (for earthquakes)
+        const timeLabel = (marker as any)._timeLabel;
+        if (timeLabel) {
+            timeLabel.addTo(this.map);
+            this.markers.set(dataPoint.id, { marker, dataPoint, timeLabel });
+        } else {
+            this.markers.set(dataPoint.id, { marker, dataPoint });
+        }
         
         // Log to event log if this is a new event and meets severity threshold
         if (!this.loggedEventIds.has(dataPoint.id)) {
@@ -144,8 +152,11 @@ export class MarkerManager {
      * Update an existing marker
      */
     private updateMarker(dataPoint: DataPoint, existing: MarkerEntry): void {
-        // Remove old marker
+        // Remove old marker and time label
         this.map.removeLayer(existing.marker);
+        if (existing.timeLabel && this.map.hasLayer(existing.timeLabel)) {
+            this.map.removeLayer(existing.timeLabel);
+        }
         
         // Create and add new marker
         const marker = this.createMarker(dataPoint);
@@ -154,7 +165,14 @@ export class MarkerManager {
         marker.addTo(this.map);
         (marker as any)._markerId = dataPoint.id;
         
-        this.markers.set(dataPoint.id, { marker, dataPoint });
+        // Add time label if it exists
+        const timeLabel = (marker as any)._timeLabel;
+        if (timeLabel) {
+            timeLabel.addTo(this.map);
+            this.markers.set(dataPoint.id, { marker, dataPoint, timeLabel });
+        } else {
+            this.markers.set(dataPoint.id, { marker, dataPoint });
+        }
         
         // Log update to event log
         this.logEvent(dataPoint, false);
@@ -179,6 +197,11 @@ export class MarkerManager {
                 if (this.map.hasLayer(marker._pulseCircle)) {
                     this.map.removeLayer(marker._pulseCircle);
                 }
+            }
+            
+            // Remove time label if it exists
+            if (existing.timeLabel && this.map.hasLayer(existing.timeLabel)) {
+                this.map.removeLayer(existing.timeLabel);
             }
             
             this.map.removeLayer(existing.marker);
@@ -225,7 +248,7 @@ export class MarkerManager {
     }
 
     /**
-     * Create earthquake marker
+     * Create earthquake marker with time label
      */
     private createEarthquakeMarker(dataPoint: DataPoint): L.CircleMarker {
         const mag = (dataPoint.metadata as any).magnitude;
@@ -253,7 +276,53 @@ export class MarkerManager {
             Age: ${formatAge(dataPoint.getAge())}
         `);
         
+        // Create time label
+        const age = dataPoint.getAge();
+        const timeText = this.formatTimeAgo(age);
+        
+        // Create a subtle time label near the marker
+        const timeLabel = L.marker([dataPoint.lat, dataPoint.lon], {
+            icon: L.divIcon({
+                className: 'earthquake-time-label',
+                html: `<div style="
+                    font-size: 10px;
+                    color: ${color};
+                    background: rgba(0, 0, 0, 0.7);
+                    padding: 2px 4px;
+                    border-radius: 3px;
+                    white-space: nowrap;
+                    font-weight: 600;
+                    border: 1px solid ${color};
+                    opacity: 0.8;
+                    pointer-events: none;
+                    text-shadow: 0 0 3px rgba(0,0,0,0.8);
+                ">${timeText}</div>`,
+                iconSize: [40, 14],
+                iconAnchor: [-radius - 5, 0] // Position to the right of the circle
+            }),
+            interactive: false
+        });
+        
+        // Store the time label on the circle marker
+        (circle as any)._timeLabel = timeLabel;
+        
         return circle;
+    }
+    
+    /**
+     * Format time ago in a concise way
+     */
+    private formatTimeAgo(ageMs: number): string {
+        const seconds = Math.floor(ageMs / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+        
+        if (seconds < 60) return `${seconds}s ago`;
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 7) return `${days}d ago`;
+        return `${Math.floor(days / 7)}w ago`;
     }
 
     /**
@@ -657,6 +726,10 @@ export class MarkerManager {
                 if (this.map.hasLayer(marker._pulseCircle)) {
                     this.map.removeLayer(marker._pulseCircle);
                 }
+            }
+            // Remove time label if it exists
+            if (value.timeLabel && this.map.hasLayer(value.timeLabel)) {
+                this.map.removeLayer(value.timeLabel);
             }
             this.map.removeLayer(value.marker);
         });
