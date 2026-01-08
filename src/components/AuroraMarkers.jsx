@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { getAuroraColor, formatAge } from '../utils/helpers';
 import { animateCirclePulse } from '../utils/animations';
+import { getAuroraSeverity } from '../utils/severity';
 
 export default function AuroraMarkers({ map, auroraData, previousAuroraIds, addEvent }) {
     const markersRef = useRef([]);
@@ -47,6 +48,7 @@ export default function AuroraMarkers({ map, auroraData, previousAuroraIds, addE
             
             // Log new aurora events
             if (isNew && previousAuroraIds.size > 0 && addEvent) {
+                const severity = getAuroraSeverity(aurora.kpIndex);
                 addEvent(
                     'new-aurora',
                     '🌌',
@@ -54,7 +56,8 @@ export default function AuroraMarkers({ map, auroraData, previousAuroraIds, addE
                     `KP Index: ${aurora.kpIndex}/9, Visibility: ${aurora.visibility}`,
                     aurora.lat,
                     aurora.lon,
-                    { markerId: eventId }
+                    { markerId: eventId },
+                    severity
                 );
             }
             

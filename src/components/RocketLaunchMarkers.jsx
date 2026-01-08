@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { formatAge } from '../utils/helpers';
 import { animateCircleBounce } from '../utils/animations';
+import { getRocketLaunchSeverity } from '../utils/severity';
 
 export default function RocketLaunchMarkers({ map, rocketData, previousRocketIds, addEvent }) {
     const markersRef = useRef([]);
@@ -60,6 +61,7 @@ export default function RocketLaunchMarkers({ map, rocketData, previousRocketIds
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
                 // Log event
                 if (addEvent) {
+                    const severity = getRocketLaunchSeverity();
                     addEvent(
                         'new-rocket',
                         '🚀',
@@ -67,7 +69,8 @@ export default function RocketLaunchMarkers({ map, rocketData, previousRocketIds
                         `${rocket.rocketType} from ${rocket.site}, ${rocket.country}`,
                         rocket.lat,
                         rocket.lon,
-                        { markerId: eventId }
+                        { markerId: eventId },
+                        severity
                     );
                 }
             }

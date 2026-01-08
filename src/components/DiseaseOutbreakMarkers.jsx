@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { getDiseaseColor, formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
+import { getDiseaseSeverity } from '../utils/severity';
 
 export default function DiseaseOutbreakMarkers({ map, diseaseData, previousDiseaseIds, addEvent }) {
     const markersRef = useRef([]);
@@ -65,6 +66,7 @@ export default function DiseaseOutbreakMarkers({ map, diseaseData, previousDisea
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
                 // Log event
                 if (addEvent) {
+                    const severity = getDiseaseSeverity(disease.severity, disease.cases);
                     addEvent(
                         'new-disease',
                         '🦠',
@@ -72,7 +74,8 @@ export default function DiseaseOutbreakMarkers({ map, diseaseData, previousDisea
                         `${disease.location}, ${disease.cases.toLocaleString()} cases`,
                         disease.lat,
                         disease.lon,
-                        { markerId: eventId }
+                        { markerId: eventId },
+                        severity
                     );
                 }
             } else if (isVeryRecent) {

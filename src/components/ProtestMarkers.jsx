@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
+import { getProtestSeverity } from '../utils/severity';
 
 export default function ProtestMarkers({ map, protestData, previousProtestIds, addEvent }) {
     const markersRef = useRef([]);
@@ -65,6 +66,7 @@ export default function ProtestMarkers({ map, protestData, previousProtestIds, a
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
                 // Log event
                 if (addEvent) {
+                    const severity = getProtestSeverity(protest.size);
                     addEvent(
                         'new-protest',
                         '✊',
@@ -72,7 +74,8 @@ export default function ProtestMarkers({ map, protestData, previousProtestIds, a
                         `${protest.cause}, ~${protest.size.toLocaleString()} people`,
                         protest.lat,
                         protest.lon,
-                        { markerId: eventId }
+                        { markerId: eventId },
+                        severity
                     );
                 }
             } else if (isVeryRecent) {

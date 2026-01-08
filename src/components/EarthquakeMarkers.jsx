@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { getMagnitudeColor, getMagnitudeRadius, formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
+import { getEarthquakeSeverity } from '../utils/severity';
 
 export default function EarthquakeMarkers({ map, earthquakeData, previousEarthquakeIds, addEvent }) {
     const markersRef = useRef([]);
@@ -63,6 +64,7 @@ export default function EarthquakeMarkers({ map, earthquakeData, previousEarthqu
                 animateCircleBounce(circle, baseRadius);
                 // Log event
                 if (addEvent) {
+                    const severity = getEarthquakeSeverity(mag);
                     addEvent(
                         'new-earthquake',
                         '🌍',
@@ -70,7 +72,8 @@ export default function EarthquakeMarkers({ map, earthquakeData, previousEarthqu
                         `${place}`,
                         lat,
                         lon,
-                        { markerId: eventId }
+                        { markerId: eventId },
+                        severity
                     );
                 }
             } else if (isVeryRecent) {

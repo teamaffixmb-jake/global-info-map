@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { getHurricaneColor, formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
+import { getHurricaneSeverity } from '../utils/severity';
 
 export default function HurricaneMarkers({ map, hurricaneData, previousHurricaneIds, addEvent }) {
     const markersRef = useRef([]);
@@ -65,6 +66,7 @@ export default function HurricaneMarkers({ map, hurricaneData, previousHurricane
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
                 // Log event
                 if (addEvent) {
+                    const severity = getHurricaneSeverity(hurricane.category);
                     addEvent(
                         'new-hurricane',
                         '🌀',
@@ -72,7 +74,8 @@ export default function HurricaneMarkers({ map, hurricaneData, previousHurricane
                         `Winds: ${hurricane.windSpeed} mph, Pressure: ${hurricane.pressure} mb`,
                         hurricane.lat,
                         hurricane.lon,
-                        { markerId: eventId }
+                        { markerId: eventId },
+                        severity
                     );
                 }
             } else if (isVeryRecent) {

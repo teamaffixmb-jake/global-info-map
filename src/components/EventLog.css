@@ -49,6 +49,42 @@
     font-size: 1rem;
 }
 
+.severity-filter {
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.severity-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.severity-badge.severity-1 {
+    background: rgba(156, 163, 175, 0.3);
+    color: #9ca3af;
+}
+
+.severity-badge.severity-2 {
+    background: rgba(251, 191, 36, 0.3);
+    color: #fbbf24;
+}
+
+.severity-badge.severity-3 {
+    background: rgba(249, 115, 22, 0.3);
+    color: #f97316;
+}
+
+.severity-badge.severity-4 {
+    background: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
 .toggle-button {
     background: rgba(255, 255, 255, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.2);

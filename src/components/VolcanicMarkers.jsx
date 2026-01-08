@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { getVolcanicAlertColor, getVolcanicSize, formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
+import { getVolcanicSeverity } from '../utils/severity';
 
 export default function VolcanicMarkers({ map, volcanicData, previousVolcanicIds, addEvent }) {
     const markersRef = useRef([]);
@@ -79,6 +80,7 @@ export default function VolcanicMarkers({ map, volcanicData, previousVolcanicIds
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
                 // Log event
                 if (addEvent) {
+                    const severity = getVolcanicSeverity(volcano.alertLevel);
                     addEvent(
                         'new-volcanic',
                         '🌋',
@@ -86,7 +88,8 @@ export default function VolcanicMarkers({ map, volcanicData, previousVolcanicIds
                         `${volcano.country}, Elevation: ${volcano.elevation}m`,
                         volcano.lat,
                         volcano.lon,
-                        { markerId: eventId }
+                        { markerId: eventId },
+                        severity
                     );
                 }
             } else if (isVeryRecent) {

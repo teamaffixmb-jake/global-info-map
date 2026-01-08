@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
+import { getConflictSeverity } from '../utils/severity';
 
 export default function ConflictMarkers({ map, conflictData, previousConflictIds, addEvent }) {
     const markersRef = useRef([]);
@@ -65,6 +66,7 @@ export default function ConflictMarkers({ map, conflictData, previousConflictIds
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
                 // Log event
                 if (addEvent) {
+                    const severity = getConflictSeverity(conflict.intensity);
                     addEvent(
                         'new-conflict',
                         '⚔️',
@@ -72,7 +74,8 @@ export default function ConflictMarkers({ map, conflictData, previousConflictIds
                         `${conflict.type}, ${conflict.recentIncidents} recent incidents`,
                         conflict.lat,
                         conflict.lon,
-                        { markerId: eventId }
+                        { markerId: eventId },
+                        severity
                     );
                 }
             } else if (isVeryRecent) {

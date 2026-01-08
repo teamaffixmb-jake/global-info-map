@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
+import { getISSSeverity } from '../utils/severity';
 
 export default function ISSMarker({ map, issData, previousISSLocation, addEvent }) {
     const markerRef = useRef(null);
@@ -46,6 +47,7 @@ export default function ISSMarker({ map, issData, previousISSLocation, addEvent 
             animateCircleBounce(markerRef.current, baseRadius);
             // Log significant ISS movement
             if (addEvent) {
+                const severity = getISSSeverity();
                 addEvent(
                     'iss-move',
                     '🛰️',
@@ -53,7 +55,8 @@ export default function ISSMarker({ map, issData, previousISSLocation, addEvent 
                     `Lat: ${issData.lat.toFixed(2)}°, Lon: ${issData.lon.toFixed(2)}°`,
                     issData.lat,
                     issData.lon,
-                    { markerId: 'iss-current' }
+                    { markerId: 'iss-current' },
+                    severity
                 );
             }
         } else {

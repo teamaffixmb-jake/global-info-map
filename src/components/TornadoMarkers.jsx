@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { getTornadoColor, getTornadoSize, formatAge } from '../utils/helpers';
 import { animateCircleBounce, animateCirclePulse } from '../utils/animations';
+import { getTornadoSeverity } from '../utils/severity';
 
 export default function TornadoMarkers({ map, tornadoData, previousTornadoIds, addEvent }) {
     const markersRef = useRef([]);
@@ -64,6 +65,7 @@ export default function TornadoMarkers({ map, tornadoData, previousTornadoIds, a
                 setTimeout(() => map.removeLayer(tempCircle), 2000);
                 // Log event
                 if (addEvent) {
+                    const severity = getTornadoSeverity(tornado.intensity);
                     addEvent(
                         'new-tornado',
                         '🌪️',
@@ -71,7 +73,8 @@ export default function TornadoMarkers({ map, tornadoData, previousTornadoIds, a
                         `${tornado.location}`,
                         tornado.lat,
                         tornado.lon,
-                        { markerId: eventId }
+                        { markerId: eventId },
+                        severity
                     );
                 }
             } else if (isVeryRecent) {

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { formatAge } from '../utils/helpers';
 import { animateCirclePulse } from '../utils/animations';
+import { getSocialUnrestSeverity } from '../utils/severity';
 
 export default function SocialUnrestMarkers({ map, unrestData, previousUnrestIds, addEvent }) {
     const markersRef = useRef([]);
@@ -51,6 +52,7 @@ export default function SocialUnrestMarkers({ map, unrestData, previousUnrestIds
             
             // Log new unrest events
             if (isNew && previousUnrestIds.size > 0 && addEvent) {
+                const severity = getSocialUnrestSeverity(unrest.severity);
                 addEvent(
                     'new-unrest',
                     '⚠️',
@@ -58,7 +60,8 @@ export default function SocialUnrestMarkers({ map, unrestData, previousUnrestIds
                     `${unrest.severity} severity, ${unrest.type}`,
                     unrest.lat,
                     unrest.lon,
-                    { markerId: eventId }
+                    { markerId: eventId },
+                    severity
                 );
             }
             

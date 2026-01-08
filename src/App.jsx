@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import './App.css';
-import Header from './components/Header';
 import Map from './components/Map';
 import Legend from './components/Legend';
 import EventLog from './components/EventLog';
@@ -24,6 +23,7 @@ function App() {
     const [loading, setLoading] = useState(true);
     const [events, setEvents] = useState([]);
     const [mapController, setMapController] = useState(null);
+    const [severityThreshold, setSeverityThreshold] = useState(1); // Default: show all (LOW and above)
 
     // Track previous data to detect new events
     const previousEarthquakeIdsRef = useRef(new Set());
@@ -40,7 +40,12 @@ function App() {
     const previousUnrestIdsRef = useRef(new Set());
     const previousDiseaseIdsRef = useRef(new Set());
 
-    const addEvent = (type, emoji, title, message, lat, lon, data) => {
+    const addEvent = (type, emoji, title, message, lat, lon, data, severity) => {
+        // Only add event if severity meets or exceeds threshold
+        if (severity < severityThreshold) {
+            return;
+        }
+        
         const event = {
             id: `${type}-${Date.now()}-${Math.random()}`,
             type,
@@ -50,7 +55,8 @@ function App() {
             timestamp: Date.now(),
             lat,
             lon,
-            data
+            data,
+            severity
         };
         setEvents(prevEvents => [...prevEvents, event].slice(-100)); // Keep last 100 events
     };
@@ -258,21 +264,6 @@ function App() {
 
     return (
         <div className="app">
-            <Header 
-                earthquakeCount={earthquakeData.length}
-                volcanicCount={volcanicData.length}
-                hurricaneCount={hurricaneData.length}
-                tornadoCount={tornadoData.length}
-                auroraCount={auroraData.length}
-                windCount={windData.length}
-                precipitationCount={precipitationData.length}
-                rocketCount={rocketData.length}
-                conflictCount={conflictData.length}
-                protestCount={protestData.length}
-                unrestCount={unrestData.length}
-                diseaseCount={diseaseData.length}
-                lastUpdate={lastUpdate}
-            />
             {loading ? (
                 <div id="loading">
                     <div>🌍 Loading map...</div>
@@ -313,7 +304,12 @@ function App() {
                         setMapController={setMapController}
                     />
                     <Legend />
-                    <EventLog events={events} onEventClick={handleEventClick} />
+                    <EventLog 
+                        events={events} 
+                        onEventClick={handleEventClick}
+                        severityThreshold={severityThreshold}
+                        onSeverityChange={setSeverityThreshold}
+                    />
                 </>
             )}
         </div>
