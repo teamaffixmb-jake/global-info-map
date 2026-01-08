@@ -5,34 +5,36 @@ import Legend from './components/Legend';
 import EventLog from './components/EventLog';
 import { 
     fetchEarthquakes, 
-    fetchISS, 
-    fetchVolcanic, 
-    fetchHurricanes, 
-    fetchTornadoes, 
-    fetchAurora, 
-    fetchWindPatterns, 
-    fetchPrecipitation, 
-    fetchRocketLaunches, 
-    fetchConflicts, 
-    fetchProtests, 
-    fetchSocialUnrest, 
-    fetchDiseaseOutbreaks 
+    fetchISS
+    // Simulated data sources removed - only real APIs remain
+    // fetchVolcanic, 
+    // fetchHurricanes, 
+    // fetchTornadoes, 
+    // fetchAurora, 
+    // fetchWindPatterns, 
+    // fetchPrecipitation, 
+    // fetchRocketLaunches, 
+    // fetchConflicts, 
+    // fetchProtests, 
+    // fetchSocialUnrest, 
+    // fetchDiseaseOutbreaks 
 } from './utils/api';
 import {
     earthquakeToDataPoint,
     issToDataPoint,
-    volcanoToDataPoint,
-    hurricaneToDataPoint,
-    tornadoToDataPoint,
-    auroraToDataPoint,
-    windToDataPoint,
-    precipitationToDataPoint,
-    rocketToDataPoint,
-    conflictToDataPoint,
-    protestToDataPoint,
-    unrestToDataPoint,
-    diseaseToDataPoint,
     convertBatch
+    // Converters for simulated data removed
+    // volcanoToDataPoint,
+    // hurricaneToDataPoint,
+    // tornadoToDataPoint,
+    // auroraToDataPoint,
+    // windToDataPoint,
+    // precipitationToDataPoint,
+    // rocketToDataPoint,
+    // conflictToDataPoint,
+    // protestToDataPoint,
+    // unrestToDataPoint,
+    // diseaseToDataPoint,
 } from './utils/converters';
 import { DataPoint } from './models/DataPoint';
 import { MarkerManager } from './utils/MarkerManager';
@@ -103,52 +105,20 @@ function App() {
 
     const loadData = async () => {
         try {
-            // Fetch all data in parallel
+            // Fetch only real data sources (earthquakes and ISS)
+            // All simulated data sources have been disconnected
             const [
                 eqResult, 
-                issResult, 
-                volcanicResult, 
-                hurricaneResult, 
-                tornadoResult, 
-                auroraResult, 
-                windResult, 
-                precipResult, 
-                rocketResult, 
-                conflictResult, 
-                protestResult, 
-                unrestResult, 
-                diseaseResult
+                issResult
             ] = await Promise.all([
                 fetchEarthquakes(),
-                fetchISS(),
-                fetchVolcanic(),
-                fetchHurricanes(),
-                fetchTornadoes(),
-                fetchAurora(),
-                fetchWindPatterns(),
-                fetchPrecipitation(),
-                fetchRocketLaunches(),
-                fetchConflicts(),
-                fetchProtests(),
-                fetchSocialUnrest(),
-                fetchDiseaseOutbreaks()
+                fetchISS()
             ]);
 
-            // Convert all raw data to DataPoints
+            // Convert all raw data to DataPoints (only real data)
             const allDataPoints: DataPoint[] = [
                 ...convertBatch(eqResult.data, earthquakeToDataPoint),
-                ...(issResult.data ? [issToDataPoint(issResult.data)] : []),
-                ...convertBatch(volcanicResult.data, volcanoToDataPoint),
-                ...convertBatch(hurricaneResult.data, hurricaneToDataPoint),
-                ...convertBatch(tornadoResult.data, tornadoToDataPoint),
-                ...convertBatch(auroraResult.data, auroraToDataPoint),
-                ...convertBatch(windResult.data, windToDataPoint),
-                ...convertBatch(precipResult.data, precipitationToDataPoint),
-                ...convertBatch(rocketResult.data, rocketToDataPoint),
-                ...convertBatch(conflictResult.data, conflictToDataPoint),
-                ...convertBatch(protestResult.data, protestToDataPoint),
-                ...convertBatch(unrestResult.data, unrestToDataPoint),
-                ...convertBatch(diseaseResult.data, diseaseToDataPoint)
+                ...(issResult.data ? [issToDataPoint(issResult.data)] : [])
             ];
 
             // Update state with new data points
