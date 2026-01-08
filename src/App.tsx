@@ -66,6 +66,7 @@ function App() {
     const [dataPoints, setDataPoints] = useState<DataPoint[]>([]);
     const [showSimulatedData, setShowSimulatedData] = useState<boolean>(false); // Toggle for sample data
     const [loadingStatus, setLoadingStatus] = useState<string>(''); // Current loading/rendering status
+    const [windRateLimited, setWindRateLimited] = useState<boolean>(false); // Wind API rate limit warning
     
     // Store marker manager instance
     const markerManagerRef = useRef<MarkerManager | null>(null);
@@ -161,10 +162,16 @@ function App() {
             setLoadingStatus('');
             
             // Load wind patterns asynchronously in the background
-            // Note: May take longer if 429 rate limit is hit (1 min wait + retry)
             (async () => {
-                setLoadingStatus('💨 Fetching wind patterns (may take 10-30s if rate-limited)...');
-                const windResult = await fetchWindPatterns();
+                setLoadingStatus('💨 Fetching wind patterns...');
+                
+                const windResult = await fetchWindPatterns(() => {
+                    // Callback when rate limit is hit (called once, then fetch stops)
+                    setWindRateLimited(true);
+                    
+                    // Auto-hide after 5 seconds
+                    setTimeout(() => setWindRateLimited(false), 5000);
+                });
                 
                 if (windResult.data.length > 0) {
                     setLoadingStatus('💨 Rendering wind data...');
@@ -250,6 +257,16 @@ function App() {
                     {loadingStatus && (
                         <div className="loading-status">
                             {loadingStatus}
+                        </div>
+                    )}
+                    
+                    {/* Wind Rate Limit Warning */}
+                    {windRateLimited && (
+                        <div className="rate-limit-warning">
+                            ⚠️ Wind Data Rate Limited
+                            <div style={{ fontSize: '0.75rem', marginTop: '0.35rem', opacity: 0.9 }}>
+                                Partial data loaded. Will retry on next refresh.
+                            </div>
                         </div>
                     )}
                     

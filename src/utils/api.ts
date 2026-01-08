@@ -457,7 +457,8 @@ export async function fetchHurricanes(): Promise<APIResponse<RawHurricane[]>> {
     try {
         // NOAA National Hurricane Center API - provides active tropical cyclones
         // Covers Atlantic, Eastern Pacific, and Central Pacific basins
-        const response = await fetch('https://www.nhc.noaa.gov/CurrentStorms.json', {
+        // Using CORS proxy to bypass CORS restrictions
+        const response = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://www.nhc.noaa.gov/CurrentStorms.json'), {
             method: 'GET',
             mode: 'cors'
         });
@@ -523,7 +524,7 @@ export async function fetchAurora(): Promise<APIResponse<RawAurora[]>> {
     }
 }
 
-export async function fetchWindPatterns(): Promise<APIResponse<RawWind[]>> {
+export async function fetchWindPatterns(onRateLimitCallback?: () => void): Promise<APIResponse<RawWind[]>> {
     try {
         // Very sparse grid (20 degrees) to minimize API calls
         const gridPoints: Array<{ lat: number, lon: number }> = [];
@@ -551,40 +552,22 @@ export async function fetchWindPatterns(): Promise<APIResponse<RawWind[]>> {
                 
                 // Handle 429 Too Many Requests
                 if (response.status === 429) {
-                    console.warn(`⚠️ Rate limit hit (429) at point ${i + 1}/${gridPoints.length}. Waiting 60 seconds...`);
-                    rateLimitHit = true;
+                    console.warn(`⚠️ Rate limit hit (429) at point ${i + 1}/${gridPoints.length}.`);
                     
-                    // Wait 1 minute before retrying
-                    await new Promise(resolve => setTimeout(resolve, 60000));
-                    
-                    // Retry this same point
-                    const retryResponse = await fetch(
-                        `https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lon}&current=windspeed_10m,winddirection_10m,windgusts_10m&windspeed_unit=mph`,
-                        { method: 'GET', mode: 'cors' }
-                    );
-                    
-                    if (!retryResponse.ok) {
-                        console.warn(`Failed retry for ${point.lat},${point.lon}: ${retryResponse.status}`);
-                        continue;
+                    // Only notify once and stop fetching
+                    if (!rateLimitHit) {
+                        rateLimitHit = true;
+                        
+                        // Notify caller that rate limit was hit
+                        if (onRateLimitCallback) {
+                            onRateLimitCallback();
+                        }
+                        
+                        console.warn(`⚠️ Stopping wind fetch early. Collected ${windData.length} points before rate limit.`);
                     }
                     
-                    const retryData = await retryResponse.json();
-                    const retryCurrent = retryData.current;
-                    
-                    const windPoint = {
-                        lat: point.lat,
-                        lon: point.lon,
-                        speed: Math.round(retryCurrent.windspeed_10m || 0),
-                        direction: retryCurrent.winddirection_10m || 0,
-                        gusts: Math.round(retryCurrent.windgusts_10m || 0),
-                        time: Date.now()
-                    } as RawWind;
-                    
-                    if (windPoint.speed >= 5) {
-                        windData.push(windPoint);
-                    }
-                    
-                    continue;
+                    // Stop trying to fetch more data - return what we have
+                    break;
                 }
                 
                 if (!response.ok) {

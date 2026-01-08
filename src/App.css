@@ -50,12 +50,41 @@ body {
     pointer-events: none;
 }
 
+/* Wind Rate Limit Warning - positioned below loading status */
+.rate-limit-warning {
+    position: absolute;
+    top: 140px;
+    left: 10px;
+    z-index: 1001;
+    background: rgba(220, 38, 38, 0.95);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(239, 68, 68, 0.8);
+    animation: pulse-warning 1.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
 @keyframes pulse-glow {
     0%, 100% {
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 0 10px rgba(59, 130, 246, 0.3);
     }
     50% {
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 0 20px rgba(59, 130, 246, 0.6);
+    }
+}
+
+@keyframes pulse-warning {
+    0%, 100% {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 0 15px rgba(239, 68, 68, 0.4);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 0 25px rgba(239, 68, 68, 0.7);
+        transform: scale(1.02);
     }
 }
 
