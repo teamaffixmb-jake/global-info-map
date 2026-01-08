@@ -1,11 +1,12 @@
 # Global Data Screensaver
 
-A real-time global data visualization application that displays earthquakes, volcanic activity, hurricanes, tornadoes, aurora activity, weather patterns, rocket launches, conflicts, protests, social unrest, and disease outbreaks on an interactive map.
+A real-time global data visualization application built with **React + TypeScript** that displays earthquakes, volcanic activity, hurricanes, tornadoes, aurora activity, weather patterns, rocket launches, conflicts, protests, social unrest, and disease outbreaks on an interactive map.
 
 ## 🏗️ Architecture Overview
 
 This project uses a **unified DataPoint architecture** where all data types flow through a single processing pipeline. This design provides:
 
+- **Type-safe data processing** with TypeScript
 - **Persistent tracking** of events by unique IDs
 - **Efficient updates** - markers update in place rather than being recreated
 - **Unified processing** - all data types handled consistently
@@ -14,9 +15,10 @@ This project uses a **unified DataPoint architecture** where all data types flow
 ### Key Design Principles
 
 1. **Single Source of Truth**: All data is converted to `DataPoint` objects
-2. **Immutable Updates**: Markers are compared by ID and only updated when changed
-3. **Separation of Concerns**: Data fetching, conversion, rendering, and event logging are separate
-4. **Fallback Strategy**: Sample data generators provide resilience when APIs fail
+2. **Type Safety**: Full TypeScript coverage with strict type checking
+3. **Immutable Updates**: Markers are compared by ID and only updated when changed
+4. **Separation of Concerns**: Data fetching, conversion, rendering, and event logging are separate
+5. **Fallback Strategy**: Sample data generators provide resilience when APIs fail
 
 ---
 
@@ -24,21 +26,21 @@ This project uses a **unified DataPoint architecture** where all data types flow
 
 ```
 src/
-├── App.jsx                    # Main application component
-├── main.jsx                   # React entry point
+├── App.tsx                    # Main application component
+├── main.tsx                   # React entry point
 ├── components/
-│   ├── Map.jsx               # Map initialization and MarkerManager integration
-│   ├── Legend.jsx            # Data legend with counts and minimizable UI
-│   └── EventLog.jsx          # Event logging with severity filtering
+│   ├── Map.tsx               # Map initialization and MarkerManager integration
+│   ├── Legend.tsx            # Data legend with counts and minimizable UI
+│   └── EventLog.tsx          # Event logging with severity filtering
 ├── models/
-│   └── DataPoint.js          # Unified data model with ID prefixes
+│   └── DataPoint.ts          # Unified data model with TypeScript types
 ├── utils/
-│   ├── api.js                # Data fetching with fallback generators
-│   ├── converters.js         # Raw data → DataPoint conversion
-│   ├── MarkerManager.js      # Unified marker rendering pipeline
-│   ├── severity.js           # Severity calculation for all data types
-│   ├── helpers.js            # Color/size/formatting utilities
-│   └── animations.js         # Marker animation functions
+│   ├── api.ts                # Data fetching with typed responses
+│   ├── converters.ts         # Raw data → DataPoint conversion with types
+│   ├── MarkerManager.ts      # Unified marker rendering pipeline
+│   ├── severity.ts           # Severity calculation with enums
+│   ├── helpers.ts            # Color/size/formatting utilities
+│   └── animations.ts         # Marker animation functions
 ```
 
 ---
@@ -46,13 +48,13 @@ src/
 ## 🔄 Data Flow
 
 ```
-1. App.jsx calls API fetch functions (utils/api.js)
+1. App.tsx calls API fetch functions (utils/api.ts)
    ↓
-2. Raw API data or sample data returned
+2. Typed API responses returned (APIResponse<T>)
    ↓
-3. Converters (utils/converters.js) transform raw data → DataPoints
+3. Converters (utils/converters.ts) transform raw data → DataPoints
    ↓
-4. DataPoints passed to MarkerManager (utils/MarkerManager.js)
+4. DataPoints passed to MarkerManager (utils/MarkerManager.ts)
    ↓
 5. MarkerManager compares with existing markers by ID
    ↓
@@ -65,21 +67,38 @@ src/
 
 ## 🧩 Core Components
 
-### 1. DataPoint Model (`src/models/DataPoint.js`)
+### 1. DataPoint Model (`src/models/DataPoint.ts`)
 
-**Purpose**: Unified data structure for all event types.
+**Purpose**: Unified, type-safe data structure for all event types.
+
+**Key Features**:
+- **TypeScript Enums**: `DataSourceType` enum for all event types
+- **Type Discrimination**: Separate metadata interfaces for each data type
+- **Generic Types**: `DataPoint<T extends DataPointMetadata>`
 
 **Key Fields**:
-- `id` - Unique identifier with type prefix (e.g., `"eqk-us6000m9z1"`, `"vol-kilauea"`)
-- `type` - Event type from `DataSourceType` enum
-- `lat`, `lon` - Coordinates
-- `title` - Display title
-- `description` - Detailed description
-- `severity` - Severity level (1-4: LOW, MEDIUM, HIGH, CRITICAL)
-- `timestamp` - Event timestamp
-- `emoji` - Display emoji
-- `metadata` - Type-specific additional data
-- `lastUpdated` - When this data was last updated
+```typescript
+class DataPoint<T extends DataPointMetadata> {
+    id: string;                    // Unique identifier with type prefix
+    type: DataSourceType;          // Event type from enum
+    lat: number;                   // Latitude
+    lon: number;                   // Longitude
+    title: string;                 // Display title
+    description: string;           // Detailed description
+    severity: number;              // 1-4: LOW, MEDIUM, HIGH, CRITICAL
+    timestamp: number;             // Event timestamp
+    emoji: string;                 // Display emoji
+    metadata: T;                   // Type-specific additional data
+    lastUpdated: number;           // Last update timestamp
+}
+```
+
+**Metadata Types**:
+- `EarthquakeMetadata` - magnitude, depth, place, url
+- `ISSMetadata` - altitude, velocity
+- `VolcanoMetadata` - elevation, country, alertLevel, lastEruption
+- `HurricaneMetadata` - category, windSpeed, pressure, direction
+- And more...
 
 **ID Prefixes**:
 - `eqk` - Earthquakes
@@ -97,53 +116,98 @@ src/
 - `dis` - Disease outbreaks
 
 **Key Methods**:
-- `hasChanged(other)` - Compare with another DataPoint to detect changes
-- `isNew()` - Check if event occurred within last 10 minutes
-- `isRecent()` - Check if event occurred within last hour
+- `hasChanged(other: DataPoint | null): boolean` - Compare with another DataPoint
+- `isNew(): boolean` - Check if event occurred within last 10 minutes
+- `isRecent(): boolean` - Check if event occurred within last hour
+- `getAge(): number` - Get age in milliseconds
 
 ---
 
-### 2. Converters (`src/utils/converters.js`)
+### 2. Converters (`src/utils/converters.ts`)
 
-**Purpose**: Transform raw API data into standardized DataPoint objects.
+**Purpose**: Transform raw API data into standardized, typed DataPoint objects.
 
-Each data source has a dedicated converter function:
-- `earthquakeToDataPoint(eq)`
-- `issToDataPoint(iss)`
-- `volcanoToDataPoint(volcano)`
-- `hurricaneToDataPoint(hurricane)`
+**Type Definitions**:
+Each data source has defined raw types:
+```typescript
+interface RawEarthquake {
+    id?: string;
+    geometry: { coordinates: [number, number, number?] };
+    properties: {
+        mag: number;
+        place: string;
+        time: number;
+        url?: string;
+    };
+}
+
+// ... similar interfaces for all data types
+```
+
+**Converter Functions**:
+- `earthquakeToDataPoint(eq: RawEarthquake): DataPoint<EarthquakeMetadata>`
+- `issToDataPoint(iss: RawISS): DataPoint<ISSMetadata>`
+- `volcanoToDataPoint(volcano: RawVolcano): DataPoint<VolcanoMetadata>`
+- `hurricaneToDataPoint(hurricane: RawHurricane): DataPoint<HurricaneMetadata>`
 - etc.
 
 **Responsibilities**:
 1. Extract or generate unique IDs
-2. Calculate severity using severity.js functions
+2. Calculate severity using severity.ts functions
 3. Map raw fields to DataPoint structure
 4. Preserve metadata for type-specific rendering
 
 **Helper Function**:
-- `convertBatch(rawData, converter)` - Convert arrays of raw data
+```typescript
+export function convertBatch<T>(
+    rawData: T[] | null | undefined, 
+    converter: (item: T) => DataPoint
+): DataPoint[]
+```
 
 ---
 
-### 3. MarkerManager (`src/utils/MarkerManager.js`)
+### 3. MarkerManager (`src/utils/MarkerManager.ts`)
 
-**Purpose**: Unified pipeline for processing and rendering all marker types.
+**Purpose**: Unified, type-safe pipeline for processing and rendering all marker types.
 
 **Core Functionality**:
 
-```javascript
-class MarkerManager {
-    // Map of ID → {marker, dataPoint}
-    markers: Map<string, {marker, dataPoint}>
+```typescript
+export class MarkerManager {
+    private map: L.Map;
+    private addEventCallback: AddEventCallback | null;
+    private severityThreshold: number;
+    private markers: Map<string, MarkerEntry>;
+    private loggedEventIds: Set<string>;
     
     // Process array of DataPoints
-    processDataPoints(dataPoints)
+    processDataPoints(dataPoints: DataPoint[]): void
     
     // Compare by ID and update/add/remove as needed
-    processDataPoint(dataPoint)
+    private processDataPoint(dataPoint: DataPoint): void
     
     // Create type-specific Leaflet markers
-    createMarker(dataPoint)
+    private createMarker(dataPoint: DataPoint): L.Marker | L.CircleMarker | null
+}
+```
+
+**Type Definitions**:
+```typescript
+export type AddEventCallback = (
+    type: string,
+    emoji: string,
+    title: string,
+    message: string,
+    lat: number,
+    lon: number,
+    data: { markerId?: string; [key: string]: any },
+    severity: number
+) => void;
+
+interface MarkerEntry {
+    marker: L.Marker | L.CircleMarker;
+    dataPoint: DataPoint;
 }
 ```
 
@@ -152,28 +216,29 @@ class MarkerManager {
 - **ID Tracking**: Maintains map of ID → marker for quick lookups
 - **Event Logging**: Automatically logs new/updated events based on severity
 - **Type-Specific Rendering**: Each data type has custom marker styling
-- **Animation Support**: Integrates with animations.js for new events
-
-**Marker Creation Methods**:
-- `createEarthquakeMarker()` - Circle markers with magnitude-based sizing
-- `createVolcanoMarker()` - Triangle markers with alert-based coloring
-- `createHurricaneMarker()` - Circle markers with category-based sizing
-- `createISSMarker()` - Animated icon marker
-- etc.
+- **Animation Support**: Integrates with animations.ts for new events
 
 ---
 
-### 4. API Layer (`src/utils/api.js`)
+### 4. API Layer (`src/utils/api.ts`)
 
-**Purpose**: Fetch data from external APIs with fallback to sample data.
+**Purpose**: Fetch data from external APIs with typed responses and fallback to sample data.
+
+**Type Definition**:
+```typescript
+export interface APIResponse<T> {
+    success: boolean;
+    data: T;
+}
+```
 
 **Structure**:
-```javascript
+```typescript
 // Sample data generator (always works)
-export function generateSampleEarthquakes() { ... }
+export function generateSampleEarthquakes(): RawEarthquake[] { ... }
 
 // API fetch function (tries real API, falls back to sample)
-export async function fetchEarthquakes() {
+export async function fetchEarthquakes(): Promise<APIResponse<RawEarthquake[]>> {
     try {
         const response = await fetch(USGS_API);
         return { success: true, data: response };
@@ -184,72 +249,108 @@ export async function fetchEarthquakes() {
 ```
 
 **Available Fetchers**:
-- `fetchEarthquakes()` - USGS Earthquake API
-- `fetchISS()` - ISS Position API
-- `fetchVolcanic()` - Sample data (real API not yet integrated)
-- `fetchHurricanes()` - Sample data
-- `fetchTornadoes()` - Sample data
+- `fetchEarthquakes(): Promise<APIResponse<RawEarthquake[]>>`
+- `fetchISS(): Promise<APIResponse<RawISS>>`
+- `fetchVolcanic(): Promise<APIResponse<RawVolcano[]>>`
+- `fetchHurricanes(): Promise<APIResponse<RawHurricane[]>>`
+- `fetchTornadoes(): Promise<APIResponse<RawTornado[]>>`
 - etc.
 
 ---
 
-### 5. Severity System (`src/utils/severity.js`)
+### 5. Severity System (`src/utils/severity.ts`)
 
-**Purpose**: Calculate severity levels for event filtering.
+**Purpose**: Calculate severity levels for event filtering using TypeScript enums.
 
-**Severity Levels**:
-```javascript
-SEVERITY = {
-    LOW: 1,
-    MEDIUM: 2,
-    HIGH: 3,
-    CRITICAL: 4
+**Severity Enum**:
+```typescript
+export enum SEVERITY {
+    LOW = 1,
+    MEDIUM = 2,
+    HIGH = 3,
+    CRITICAL = 4
 }
+
+export const SEVERITY_LABELS: Record<number, string> = {
+    1: 'Low',
+    2: 'Medium',
+    3: 'High',
+    4: 'Critical'
+};
 ```
 
 **Calculation Functions**:
-Each data type has a dedicated severity calculator based on its characteristics:
-- `getEarthquakeSeverity(magnitude)` - Based on Richter scale
-- `getHurricaneSeverity(category)` - Based on Saffir-Simpson scale
-- `getTornadoSeverity(intensity)` - Based on Enhanced Fujita scale
-- `getVolcanicSeverity(alertLevel)` - Based on alert status
-- etc.
+Each data type has a dedicated severity calculator:
+```typescript
+export function getEarthquakeSeverity(magnitude: number): SEVERITY
+export function getHurricaneSeverity(category: number): SEVERITY
+export function getTornadoSeverity(intensity: number): SEVERITY
+export function getVolcanicSeverity(alertLevel: string): SEVERITY
+// etc.
+```
 
 **Usage in Event Log**:
 The EventLog component filters events based on a user-selected severity threshold, showing only events meeting or exceeding that level.
 
 ---
 
-### 6. React Components
+### 6. React Components (TypeScript)
 
-#### App.jsx
-**Role**: Main application orchestrator
+#### App.tsx
+**Role**: Main application orchestrator with full type safety
+
+**Key Types**:
+```typescript
+interface MapController {
+    zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => void;
+}
+
+interface EventData {
+    id: string;
+    type: string;
+    emoji: string;
+    title: string;
+    message: string;
+    timestamp: number;
+    lat?: number;
+    lon?: number;
+    data?: { markerId?: string; [key: string]: any };
+    severity: number;
+}
+```
 
 **Responsibilities**:
 - Fetch data from all sources in parallel
-- Convert raw data to DataPoints
+- Convert raw data to DataPoints with type checking
 - Manage global state (events, severity threshold, map controller)
-- Pass data to child components
+- Pass typed props to child components
 
-**Key State**:
-- `dataPoints` - All current DataPoints
-- `events` - Event log entries
-- `severityThreshold` - Minimum severity to display
-- `markerManagerRef` - Reference to MarkerManager instance
-
-#### Map.jsx
+#### Map.tsx
 **Role**: Map initialization and marker management
 
-**Responsibilities**:
-- Initialize Leaflet map (once on mount)
-- Create MarkerManager instance
-- Provide map controller for event log interactions
-- Process DataPoints through MarkerManager
+**Props Interface**:
+```typescript
+interface MapProps {
+    dataPoints: DataPoint[];
+    addEvent: AddEventCallback;
+    severityThreshold: number;
+    setMapController: (controller: MapController) => void;
+    markerManagerRef: MutableRefObject<MarkerManager | null>;
+}
+```
 
 **Important**: Uses multiple `useEffect` hooks with specific dependencies to prevent map flickering.
 
-#### Legend.jsx
+#### Legend.tsx
 **Role**: Display legend and data counts
+
+**Props Interface**:
+```typescript
+interface LegendProps {
+    counts?: Record<string, number>;
+    lastUpdate?: string;
+}
+```
 
 **Features**:
 - Shows real-time counts for each data type
@@ -257,8 +358,18 @@ The EventLog component filters events based on a user-selected severity threshol
 - Last update timestamp
 - Color/symbol key for all data types
 
-#### EventLog.jsx
+#### EventLog.tsx
 **Role**: Display event log with filtering
+
+**Props Interface**:
+```typescript
+interface EventLogProps {
+    events: EventData[];
+    onEventClick?: (event: EventData) => void;
+    severityThreshold: number;
+    onSeverityChange: (threshold: number) => void;
+}
+```
 
 **Features**:
 - Shows last 100 events
@@ -296,90 +407,120 @@ The EventLog component filters events based on a user-selected severity threshol
 
 Follow these steps to add a new data type to the visualization:
 
-### 1. Update DataPoint Model (`models/DataPoint.js`)
+### 1. Update DataPoint Model (`models/DataPoint.ts`)
 
-```javascript
+```typescript
 // Add to DataSourceType enum
-export const DataSourceType = {
+export enum DataSourceType {
     // ... existing types
-    NEWTYPE: 'newtype'
-};
+    NEWTYPE = 'newtype'
+}
 
 // Add ID prefix
-export const DataSourcePrefix = {
+export const DataSourcePrefix: Record<DataSourceType, string> = {
     // ... existing prefixes
     [DataSourceType.NEWTYPE]: 'new'
 };
+
+// Define metadata interface
+export interface NewTypeMetadata {
+    property1: string;
+    property2: number;
+    // ... other fields
+}
+
+// Add to DataPointMetadata union
+export type DataPointMetadata =
+    | EarthquakeMetadata
+    | ISSMetadata
+    // ... existing types
+    | NewTypeMetadata;
 ```
 
-### 2. Create Sample Data Generator (`utils/api.js`)
+### 2. Create Sample Data Generator (`utils/api.ts`)
 
-```javascript
-export function generateSampleNewType() {
+```typescript
+export interface RawNewType {
+    id?: string;
+    lat: number;
+    lon: number;
+    property1: string;
+    property2: number;
+}
+
+export function generateSampleNewType(): RawNewType[] {
     return [
         {
             id: 'sample-1',
             lat: 40.7128,
             lon: -74.0060,
-            // ... other fields
+            property1: 'value',
+            property2: 42
         }
     ];
 }
 
-export async function fetchNewType() {
+export async function fetchNewType(): Promise<APIResponse<RawNewType[]>> {
     try {
         // Try real API
         const response = await fetch('API_URL');
-        return { success: true, data: await response.json() };
+        const data = await response.json();
+        return { success: true, data };
     } catch (error) {
+        console.error('Error fetching new type:', error);
         return { success: false, data: generateSampleNewType() };
     }
 }
 ```
 
-### 3. Create Converter (`utils/converters.js`)
+### 3. Create Converter (`utils/converters.ts`)
 
-```javascript
-export function newTypeToDataPoint(item) {
-    const id = `${DataSourcePrefix[DataSourceType.NEWTYPE]}-${item.id}`;
-    const severity = getNewTypeSeverity(item.someProperty);
+```typescript
+export function newTypeToDataPoint(item: RawNewType): DataPoint<NewTypeMetadata> {
+    const uniqueId = item.id || `${item.lat}-${item.lon}`;
+    const id = `${DataSourcePrefix[DataSourceType.NEWTYPE]}-${uniqueId}`;
+    const severity = getNewTypeSeverity(item.property2);
     
     return new DataPoint(
         id,
         DataSourceType.NEWTYPE,
         item.lat,
         item.lon,
-        item.title,
-        item.description,
+        `New Type Event`,
+        `Property: ${item.property1}`,
         severity,
-        item.timestamp,
+        Date.now(),
         '🆕', // emoji
-        { /* metadata */ }
+        {
+            property1: item.property1,
+            property2: item.property2
+        }
     );
 }
 ```
 
-### 4. Add Severity Calculator (`utils/severity.js`)
+### 4. Add Severity Calculator (`utils/severity.ts`)
 
-```javascript
-export function getNewTypeSeverity(property) {
-    if (property >= HIGH_THRESHOLD) return SEVERITY.CRITICAL;
-    if (property >= MEDIUM_THRESHOLD) return SEVERITY.HIGH;
-    if (property >= LOW_THRESHOLD) return SEVERITY.MEDIUM;
+```typescript
+export function getNewTypeSeverity(property: number): SEVERITY {
+    if (property >= 100) return SEVERITY.CRITICAL;
+    if (property >= 50) return SEVERITY.HIGH;
+    if (property >= 25) return SEVERITY.MEDIUM;
     return SEVERITY.LOW;
 }
 ```
 
-### 5. Add Marker Creator (`utils/MarkerManager.js`)
+### 5. Add Marker Creator (`utils/MarkerManager.ts`)
 
-```javascript
+```typescript
 // Add case to createMarker() switch statement
 case DataSourceType.NEWTYPE:
     return this.createNewTypeMarker(dataPoint);
 
 // Implement marker creation method
-createNewTypeMarker(dataPoint) {
-    const color = getNewTypeColor(dataPoint.metadata.property);
+private createNewTypeMarker(dataPoint: DataPoint): L.CircleMarker {
+    const metadata = dataPoint.metadata as any;
+    const color = getNewTypeColor(metadata.property2);
     const circle = L.circleMarker([dataPoint.lat, dataPoint.lon], {
         radius: 10,
         fillColor: color,
@@ -398,19 +539,19 @@ createNewTypeMarker(dataPoint) {
 }
 ```
 
-### 6. Add Helper Functions (`utils/helpers.js`)
+### 6. Add Helper Functions (`utils/helpers.ts`)
 
-```javascript
-export function getNewTypeColor(property) {
-    if (property >= HIGH) return '#ff0000';
-    if (property >= MEDIUM) return '#ff9900';
+```typescript
+export function getNewTypeColor(property: number): string {
+    if (property >= 100) return '#ff0000';
+    if (property >= 50) return '#ff9900';
     return '#ffcc00';
 }
 ```
 
-### 7. Update App.jsx
+### 7. Update App.tsx
 
-```javascript
+```typescript
 // Add to fetch array in loadData()
 const [/* ... */, newTypeResult] = await Promise.all([
     // ... existing fetches
@@ -418,13 +559,13 @@ const [/* ... */, newTypeResult] = await Promise.all([
 ]);
 
 // Add to DataPoint conversion
-const allDataPoints = [
+const allDataPoints: DataPoint[] = [
     // ... existing conversions
     ...convertBatch(newTypeResult.data, newTypeToDataPoint)
 ];
 ```
 
-### 8. Update Legend (`components/Legend.jsx`)
+### 8. Update Legend (`components/Legend.tsx`)
 
 Add section showing the new data type with visual example and count.
 
@@ -450,23 +591,27 @@ npm run build
 
 # Preview production build
 npm run preview
+
+# Type check
+npx tsc --noEmit
 ```
 
 ### Development Server
-The app runs at `http://localhost:5173/` with hot module reload.
+The app runs at `http://localhost:5173/` (or 5174 if port is busy) with hot module reload.
 
 ### Key Dependencies
 - **React 18** - UI framework
+- **TypeScript 5** - Type safety and tooling
 - **Vite** - Build tool and dev server
 - **Leaflet** - Interactive maps
-- **Leaflet React** - React integration for Leaflet
+- **@types/react**, **@types/leaflet**, **@types/node** - Type definitions
 
 ---
 
 ## 🐛 Common Issues & Solutions
 
 ### Map Flickering
-**Cause**: Dependencies in Map.jsx useEffect causing constant reinitialization  
+**Cause**: Dependencies in Map.tsx useEffect causing constant reinitialization  
 **Solution**: Use `useCallback` for functions passed as props, split effects by concern
 
 ### CORS Errors
@@ -480,6 +625,10 @@ The app runs at `http://localhost:5173/` with hot module reload.
 ### Event Log Not Showing Events
 **Cause**: Severity threshold too high  
 **Solution**: Lower severity threshold in EventLog dropdown
+
+### TypeScript Errors
+**Cause**: Type mismatches or missing type definitions  
+**Solution**: Run `npx tsc --noEmit` to see all errors, ensure proper types are defined
 
 ---
 
@@ -500,12 +649,17 @@ The app runs at `http://localhost:5173/` with hot module reload.
 - All API calls made in parallel with `Promise.all()`
 - Non-blocking updates with React state
 
+### Type Safety Benefits
+- Catch errors at compile time instead of runtime
+- Better IDE autocomplete and IntelliSense
+- Refactoring is safer with type checking
+
 ---
 
 ## 🎯 Future Enhancements
 
 ### Potential Improvements
-1. **TypeScript Migration** - Add type safety
+1. ✅ **TypeScript Migration** - Complete! (v3.0.0)
 2. **Real API Integration** - Replace sample data with real APIs
 3. **Backend Proxy** - Solve CORS issues with proxy server
 4. **WebSocket Updates** - Real-time data streaming
@@ -515,15 +669,19 @@ The app runs at `http://localhost:5173/` with hot module reload.
 8. **Mobile Optimization** - Improve touch interactions
 9. **Offline Mode** - Cache data for offline viewing
 10. **Export Functionality** - Export event data or screenshots
+11. **Unit Tests** - Add comprehensive test coverage
+12. **Storybook** - Component documentation and playground
 
 ---
 
 ## 📝 Code Style Guide
 
 ### Naming Conventions
-- **Components**: PascalCase (e.g., `EventLog.jsx`)
-- **Utilities**: camelCase (e.g., `converters.js`)
-- **Constants**: UPPER_SNAKE_CASE (e.g., `DATA_SOURCE_TYPE`)
+- **Components**: PascalCase (e.g., `EventLog.tsx`)
+- **Utilities**: camelCase (e.g., `converters.ts`)
+- **Types/Interfaces**: PascalCase (e.g., `DataPoint`, `MapProps`)
+- **Enums**: PascalCase (e.g., `DataSourceType`, `SEVERITY`)
+- **Constants**: UPPER_SNAKE_CASE (e.g., `SEVERITY_LABELS`)
 - **CSS Classes**: kebab-case (e.g., `event-log`)
 
 ### File Organization
@@ -531,12 +689,21 @@ The app runs at `http://localhost:5173/` with hot module reload.
 - Group related utilities in same file
 - Keep files under 700 lines when possible
 - Extract reusable logic to utility functions
+- Co-locate types with their usage
+
+### TypeScript Patterns
+- Use interfaces for object shapes
+- Use enums for fixed sets of values
+- Use type unions for discriminated unions
+- Prefer explicit return types for public APIs
+- Use generics for reusable components
 
 ### React Patterns
 - Use functional components with hooks
 - Use `useCallback` for functions passed as props
 - Use `useRef` for values that don't trigger re-renders
 - Split complex effects into multiple focused effects
+- Define prop interfaces for all components
 
 ---
 
@@ -546,10 +713,12 @@ When contributing to this project:
 
 1. **Understand the architecture** - Read this README fully
 2. **Follow the data flow** - Raw data → DataPoint → MarkerManager → Render
-3. **Test with sample data** - Ensure fallbacks work
-4. **Add severity calculations** - New data types need severity functions
-5. **Update documentation** - Keep this README current
-6. **Consider performance** - Avoid unnecessary re-renders
+3. **Maintain type safety** - All new code should be properly typed
+4. **Test with sample data** - Ensure fallbacks work
+5. **Add severity calculations** - New data types need severity functions
+6. **Update documentation** - Keep this README current
+7. **Consider performance** - Avoid unnecessary re-renders
+8. **Run type checks** - `npx tsc --noEmit` before committing
 
 ---
 
@@ -565,10 +734,10 @@ This project is open source and available for educational and demonstration purp
 - **ISS Position**: wheretheiss.at API
 - **Map Tiles**: CartoDB Dark Matter
 - **Leaflet**: Open-source mapping library
-- **Vite + React**: Modern web development tools
+- **Vite + React + TypeScript**: Modern web development tools
 
 ---
 
 **Last Updated**: January 2026  
 **Maintainer**: Add your name here  
-**Version**: 2.0.0 (DataPoint Architecture)
+**Version**: 3.0.0 (TypeScript + DataPoint Architecture)
