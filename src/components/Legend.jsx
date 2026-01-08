@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import './Legend.css';
+import { DataSourceType } from '../models/DataPoint';
 
-export default function Legend() {
+export default function Legend({ counts = {}, lastUpdate = '' }) {
     const [isMinimized, setIsMinimized] = useState(false);
 
     return (
@@ -13,6 +14,28 @@ export default function Legend() {
                 </button>
             </div>
             <div className="legend-content">
+            
+            <div style={{ marginBottom: '1rem', padding: '0.5rem', background: '#1f2937', borderRadius: '0.25rem', borderLeft: '3px solid #10b981' }}>
+                <strong style={{ fontSize: '0.75rem', color: '#10b981' }}>📊 Active Data Points</strong>
+                <div style={{ fontSize: '0.7rem', marginTop: '0.25rem', color: '#d1d5db', lineHeight: '1.4' }}>
+                    <span style={{ color: '#fbbf24' }}>🔴</span> EQ: {counts[DataSourceType.EARTHQUAKE] || 0} | 
+                    <span style={{ color: '#ff0000' }}>🌋</span> Vol: {counts[DataSourceType.VOLCANO] || 0} | 
+                    <span style={{ color: '#ff6600' }}>🌀</span> Hur: {counts[DataSourceType.HURRICANE] || 0} | 
+                    <span style={{ color: '#ff9900' }}>🌪️</span> Tor: {counts[DataSourceType.TORNADO] || 0}<br/>
+                    <span style={{ color: '#00ff88' }}>🌌</span> Aur: {counts[DataSourceType.AURORA] || 0} | 
+                    <span style={{ color: '#ffff00' }}>💨</span> Wind: {counts[DataSourceType.WIND] || 0} | 
+                    <span style={{ color: '#00aaff' }}>🌧️</span> Precip: {counts[DataSourceType.PRECIPITATION] || 0} | 
+                    <span style={{ color: '#00ff00' }}>🚀</span> Rocket: {counts[DataSourceType.ROCKET] || 0}<br/>
+                    <span style={{ color: '#ff0000' }}>⚔️</span> Conflict: {counts[DataSourceType.CONFLICT] || 0} | 
+                    <span style={{ color: '#ff6600' }}>✊</span> Protest: {counts[DataSourceType.PROTEST] || 0} | 
+                    <span style={{ color: '#ff9900' }}>⚠️</span> Unrest: {counts[DataSourceType.UNREST] || 0} | 
+                    <span style={{ color: '#ff0000' }}>🦠</span> Disease: {counts[DataSourceType.DISEASE] || 0} | 
+                    <span style={{ color: '#a855f7' }}>🛰️</span> ISS: {counts[DataSourceType.ISS] ? 1 : 0}
+                </div>
+                <div style={{ fontSize: '0.65rem', marginTop: '0.5rem', color: '#9ca3af' }}>
+                    Last updated: {lastUpdate || '--:--:--'}
+                </div>
+            </div>
             
             <div style={{ marginBottom: '1rem', padding: '0.5rem', background: '#374151', borderRadius: '0.25rem' }}>
                 <strong style={{ fontSize: '0.875rem', color: '#fbbf24' }}>✨ Animation Key</strong>

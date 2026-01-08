@@ -51,6 +51,10 @@ export function getHurricaneColor(category) {
     return '#ffff00';
 }
 
+export function getHurricaneSize(category) {
+    return Math.max(8, category * 3 + 5);
+}
+
 export function getTornadoColor(intensity) {
     if (intensity >= 4) return '#8b0000';
     if (intensity >= 3) return '#ff0000';
@@ -70,11 +74,40 @@ export function getAuroraColor(kpIndex) {
     return '#aaffaa';
 }
 
+export function getAuroraSize(kpIndex) {
+    return Math.max(10, kpIndex * 2 + 5);
+}
+
 export function getWindColor(speed) {
     if (speed >= 30) return '#ff0000';
     if (speed >= 20) return '#ff6600';
     if (speed >= 15) return '#ffcc00';
     return '#ffff00';
+}
+
+export function getPrecipitationColor(intensity) {
+    if (intensity >= 30) return '#0000ff';
+    if (intensity >= 20) return '#0066ff';
+    if (intensity >= 10) return '#00aaff';
+    return '#00ddff';
+}
+
+export function getConflictColor(intensity) {
+    if (intensity === 'high') return '#ff0000';
+    if (intensity === 'medium') return '#ff6600';
+    return '#ff9900';
+}
+
+export function getProtestColor(size) {
+    if (size >= 50000) return '#ff0000';
+    if (size >= 10000) return '#ff6600';
+    return '#ffcc00';
+}
+
+export function getUnrestColor(severity) {
+    if (severity === 'high') return '#ff0000';
+    if (severity === 'medium') return '#ff6600';
+    return '#ff9900';
 }
 
 export function getDiseaseColor(severity) {
