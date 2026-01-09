@@ -2,6 +2,62 @@
 
 A real-time global data visualization application built with **React + TypeScript** that displays earthquakes, volcanic activity, hurricanes, and atmospheric wind patterns on an interactive **3D globe** with flowing streamlines.
 
+## 🚀 Quick Start
+
+### For Users (Run Locally)
+
+**Option 1: Install globally and run**
+```bash
+npm install -g global-data-screensaver
+global-data-screensaver
+```
+
+**Option 2: Run directly with npx (no installation)**
+```bash
+npx global-data-screensaver
+```
+
+The application will automatically:
+- Start a local server on `http://localhost:5173`
+- Open in your default browser
+- Load real-time global data
+
+Press `Ctrl+C` to stop the server.
+
+### For Developers (Clone and Modify)
+
+```bash
+# Clone the repository
+git clone https://github.com/teamaffixmb-jake/global-info-map.git
+cd global-info-map
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
+```
+
+The application will open at `http://localhost:5173`
+
+### Building for Production
+
+```bash
+# Build the project
+npm run build
+
+# Preview the production build
+npm run preview
+```
+
+The built files will be in the `dist/` directory, ready to deploy to any static hosting service.
+
+### System Requirements
+
+- **Node.js**: v18.0.0 or higher
+- **npm**: v9.0.0 or higher
+- Modern web browser with WebGL 2.0 support
+
 ## ✨ Key Features
 
 - 🌍 **Interactive 3D Globe** - Powered by Cesium.js with smooth rotation, zoom, and tilt

@@ -1,12 +1,53 @@
 {
   "name": "global-data-screensaver",
-  "version": "5.0.0",
+  "version": "5.2.0",
   "type": "module",
-  "description": "Real-time global data visualization on a 3D interactive globe with Cesium.js",
+  "description": "Real-time global data visualization on a 3D interactive globe with Cesium.js - earthquakes, volcanoes, hurricanes, ISS tracking, wind patterns, and more",
+  "author": "Jake Harrison <teamaffixmb.jake@gmail.com>",
+  "license": "MIT",
+  "keywords": [
+    "cesium",
+    "3d-globe",
+    "data-visualization",
+    "earthquakes",
+    "volcanoes",
+    "hurricanes",
+    "iss-tracking",
+    "wind-patterns",
+    "screensaver",
+    "real-time",
+    "react",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teamaffixmb-jake/global-info-map.git"
+  },
+  "bugs": {
+    "url": "https://github.com/teamaffixmb-jake/global-info-map/issues"
+  },
+  "homepage": "https://github.com/teamaffixmb-jake/global-info-map#readme",
+  "bin": {
+    "global-data-screensaver": "./bin/cli.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "bin",
+    "index.html",
+    "vite.config.ts",
+    "tsconfig.json",
+    "tsconfig.node.json"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "npm run dev"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   },
   "dependencies": {
     "cesium": "^1.137.0",

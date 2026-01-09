@@ -1,0 +1,34 @@
+# Development files
+.git
+.gitignore
+.cursor
+.vscode
+.idea
+
+# Build artifacts (keep dist/ for deployment)
+node_modules/
+
+# Development docs
+chat-summary.txt
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
