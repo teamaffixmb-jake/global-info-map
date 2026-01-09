@@ -3,6 +3,8 @@ import {
     Viewer, 
     Cartesian3,
     Cartographic,
+    Quaternion,
+    Matrix3,
     Ion,
     Color,
     UrlTemplateImageryProvider,
@@ -19,6 +21,7 @@ interface MapController {
     zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => void;
     startRotation: () => void;
     stopRotation: () => void;
+    startRotationAroundPoint: (lat: number, lon: number) => void;
     resetCamera: () => void;
     adjustAltitudeForRotation: () => void;
     startISSTracking: () => void;
@@ -138,6 +141,24 @@ function CesiumMap({
                             rotationIntervalRef.current = null;
                             console.log('⏹️ Globe rotation stopped');
                         }
+                    },
+                    startRotationAroundPoint: (lat: number, lon: number) => {
+                        // Stop any existing rotation
+                        if (rotationIntervalRef.current) {
+                            clearInterval(rotationIntervalRef.current);
+                        }
+                        
+                        // Just use the same simple rotation as Earth rotation
+                        // The camera is already centered on the point from zoomTo
+                        const rotationSpeed = 0.0003; // radians per frame
+                        
+                        rotationIntervalRef.current = window.setInterval(() => {
+                            if (viewer.camera) {
+                                viewer.camera.rotateRight(rotationSpeed);
+                            }
+                        }, 16); // ~60fps
+                        
+                        console.log(`🔄 Rotation started around point (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`);
                     },
                     resetCamera: () => {
                         // Clear any tracked entity first (e.g., ISS tracking)

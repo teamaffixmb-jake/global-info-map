@@ -44,6 +44,7 @@ interface MapController {
     zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => void;
     startRotation: () => void;
     stopRotation: () => void;
+    startRotationAroundPoint: (lat: number, lon: number) => void;
     resetCamera: () => void;
     adjustAltitudeForRotation: () => void;
     startISSTracking: () => void;
@@ -505,6 +506,11 @@ function App() {
                         console.log(`🎲 Visiting: ${event.title} (Severity: ${event.severity})`);
                         recentlyVisitedRef.current.add(event.id);
                         mapController.zoomTo(event.lat, event.lon, { markerId: event.id });
+                        
+                        // Start rotation around the marker after zoom completes
+                        setTimeout(() => {
+                            mapController.startRotationAroundPoint(event.lat, event.lon);
+                        }, 2500); // Wait for zoom animation to complete
                         
                         // Keep history manageable (last 20)
                         if (recentlyVisitedRef.current.size > 20) {
