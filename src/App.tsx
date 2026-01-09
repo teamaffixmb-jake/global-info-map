@@ -244,17 +244,16 @@ function App() {
             if (issResult.data) {
                 const issDataPoint = issToDataPoint(issResult.data);
                 
+                // Update ISS in dataPoints
                 setDataPoints(prevPoints => {
                     const withoutISS = prevPoints.filter(dp => dp.type !== 'iss');
-                    const updated = [...withoutISS, issDataPoint];
-                    
-                    if (markerManagerRef.current) {
-                        markerManagerRef.current.processDataPoints(updated);
-                    }
-                    
-                    return updated;
+                    return [...withoutISS, issDataPoint];
                 });
-                console.log('🛰️ ISS position updated');
+                
+                // Update entity in place (won't remove/recreate, maintains tracking)
+                if (markerManagerRef.current) {
+                    markerManagerRef.current.updateSingleEntity(issDataPoint);
+                }
             }
         } catch (error) {
             console.error('Error updating ISS position:', error);
@@ -270,12 +269,14 @@ function App() {
                 const withoutEarthquakes = prevPoints.filter(dp => dp.type !== 'earthquake');
                 const updated = [...withoutEarthquakes, ...newEarthquakes];
                 
+                // Update all entities (will add/update/remove as needed)
                 if (markerManagerRef.current) {
                     markerManagerRef.current.processDataPoints(updated);
                 }
                 
                 return updated;
             });
+            
             console.log(`🌍 Earthquake data updated (${newEarthquakes.length} events)`);
         } catch (error) {
             console.error('Error updating earthquake data:', error);
@@ -291,12 +292,14 @@ function App() {
                 const withoutVolcanoes = prevPoints.filter(dp => dp.type !== 'volcano');
                 const updated = [...withoutVolcanoes, ...newVolcanoes];
                 
+                // Update all entities (will add/update/remove as needed)
                 if (markerManagerRef.current) {
                     markerManagerRef.current.processDataPoints(updated);
                 }
                 
                 return updated;
             });
+            
             console.log(`🌋 Volcano data updated (${newVolcanoes.length} events)`);
         } catch (error) {
             console.error('Error updating volcano data:', error);
@@ -318,12 +321,14 @@ function App() {
                 const withoutHurricanes = prevPoints.filter(dp => dp.type !== 'hurricane');
                 const updated = [...withoutHurricanes, ...newHurricanes];
                 
+                // Update all entities (will add/update/remove as needed)
                 if (markerManagerRef.current) {
                     markerManagerRef.current.processDataPoints(updated);
                 }
                 
                 return updated;
             });
+            
             console.log(`🌀 Hurricane data updated (${newHurricanes.length} events)`);
         } catch (error) {
             console.error('Error updating hurricane data:', error);

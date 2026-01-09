@@ -170,6 +170,22 @@ export class CesiumMarkerManager {
     }
 
     /**
+     * Update a single entity without checking for removals
+     * Useful for frequent updates like ISS position
+     */
+    public updateSingleEntity(dataPoint: DataPoint): void {
+        const existing = this.entities.get(dataPoint.id);
+
+        if (!existing) {
+            // New entity - add it
+            this.addEntity(dataPoint);
+        } else if (dataPoint.hasChanged(existing.dataPoint)) {
+            // Entity changed - update it
+            this.updateEntity(dataPoint, existing);
+        }
+    }
+
+    /**
      * Add a new entity to the globe
      */
     private addEntity(dataPoint: DataPoint): void {
@@ -198,6 +214,34 @@ export class CesiumMarkerManager {
      * Update an existing entity
      */
     private updateEntity(dataPoint: DataPoint, existing: EntityEntry): void {
+        // Special handling for ISS: update position in place to maintain tracking
+        if (dataPoint.type === DataSourceType.ISS) {
+            const metadata = dataPoint.metadata as any;
+            const newPosition = Cartesian3.fromDegrees(
+                dataPoint.lon, 
+                dataPoint.lat, 
+                (metadata.altitude || 400) * 1000
+            );
+            
+            // Update position property
+            existing.entity.position = new ConstantPositionProperty(newPosition);
+            
+            // Update description
+            existing.entity.description = new ConstantProperty(`
+                <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
+                ${dataPoint.description}<br>
+                Altitude: ${metadata.altitude} km<br>
+                Velocity: ${metadata.velocity} km/h
+            `);
+            
+            // Update the dataPoint reference
+            this.entities.set(dataPoint.id, { entity: existing.entity, dataPoint });
+            
+            // Don't log ISS updates (too frequent)
+            return;
+        }
+        
+        // For all other entity types: recreate (original behavior)
         // Remove old entity and time label
         this.viewer.entities.remove(existing.entity);
         if (existing.timeLabel) {
