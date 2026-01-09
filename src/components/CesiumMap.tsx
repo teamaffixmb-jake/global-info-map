@@ -135,9 +135,14 @@ function CesiumMap({
                         }
                     },
                     resetCamera: () => {
-                        // Reset to a nice global view
+                        // Clear any tracked entity first (e.g., ISS tracking)
+                        if (viewer.trackedEntity) {
+                            viewer.trackedEntity = undefined;
+                        }
+                        
+                        // Reset to a nice global view at 8Mm altitude
                         viewer.camera.flyTo({
-                            destination: Cartesian3.fromDegrees(0, 20, 15000000), // Center on equator, 15M meters altitude
+                            destination: Cartesian3.fromDegrees(0, 20, 8000000), // Center on equator, 8M meters altitude
                             duration: 2.0,
                             orientation: {
                                 heading: 0,
@@ -145,7 +150,7 @@ function CesiumMap({
                                 roll: 0
                             }
                         });
-                        console.log('🌍 Camera reset to global view');
+                        console.log('🌍 Camera reset to global view (8Mm altitude)');
                     },
                     startISSTracking: () => {
                         // Get ISS entity from marker manager

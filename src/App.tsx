@@ -449,8 +449,12 @@ function App() {
         // Execute current autopilot mode
         switch (autopilotMode) {
             case 'rotate':
-                // When entering rotate mode, start rotation
-                mapController.startRotation();
+                // When entering rotate mode, reset camera to global view then start rotation
+                mapController.resetCamera();
+                // Wait for camera reset animation to complete before starting rotation
+                setTimeout(() => {
+                    mapController.startRotation();
+                }, 2000); // Match the resetCamera duration
                 break;
 
             case 'wander':
