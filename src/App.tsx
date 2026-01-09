@@ -236,29 +236,135 @@ function App() {
         setLastUpdate(now.toLocaleTimeString());
     };
 
-    // Load ISS data separately (called more frequently)
-    const loadISSData = useCallback(async () => {
+    // Individual data source update functions
+    const updateISSData = useCallback(async () => {
         try {
             const issResult = await fetchISS();
             
             if (issResult.data) {
                 const issDataPoint = issToDataPoint(issResult.data);
                 
-                // Update dataPoints: remove old ISS, add new ISS
                 setDataPoints(prevPoints => {
                     const withoutISS = prevPoints.filter(dp => dp.type !== 'iss');
                     const updated = [...withoutISS, issDataPoint];
                     
-                    // Update markers through marker manager
                     if (markerManagerRef.current) {
                         markerManagerRef.current.processDataPoints(updated);
                     }
                     
                     return updated;
                 });
+                console.log('🛰️ ISS position updated');
             }
         } catch (error) {
             console.error('Error updating ISS position:', error);
+        }
+    }, []);
+
+    const updateEarthquakeData = useCallback(async () => {
+        try {
+            const eqResult = await fetchEarthquakes();
+            const newEarthquakes = convertBatch(eqResult.data, earthquakeToDataPoint);
+            
+            setDataPoints(prevPoints => {
+                const withoutEarthquakes = prevPoints.filter(dp => dp.type !== 'earthquake');
+                const updated = [...withoutEarthquakes, ...newEarthquakes];
+                
+                if (markerManagerRef.current) {
+                    markerManagerRef.current.processDataPoints(updated);
+                }
+                
+                return updated;
+            });
+            console.log(`🌍 Earthquake data updated (${newEarthquakes.length} events)`);
+        } catch (error) {
+            console.error('Error updating earthquake data:', error);
+        }
+    }, []);
+
+    const updateVolcanoData = useCallback(async () => {
+        try {
+            const volcanicResult = await fetchVolcanic();
+            const newVolcanoes = convertBatch(volcanicResult.data, volcanoToDataPoint);
+            
+            setDataPoints(prevPoints => {
+                const withoutVolcanoes = prevPoints.filter(dp => dp.type !== 'volcano');
+                const updated = [...withoutVolcanoes, ...newVolcanoes];
+                
+                if (markerManagerRef.current) {
+                    markerManagerRef.current.processDataPoints(updated);
+                }
+                
+                return updated;
+            });
+            console.log(`🌋 Volcano data updated (${newVolcanoes.length} events)`);
+        } catch (error) {
+            console.error('Error updating volcano data:', error);
+        }
+    }, []);
+
+    const updateHurricaneData = useCallback(async () => {
+        try {
+            const hurricaneResult = await fetchHurricanes();
+            let newHurricanes = convertBatch(hurricaneResult.data, hurricaneToDataPoint);
+            
+            // Add simulated data if toggle is enabled and no real data exists
+            if (showSimulatedData && hurricaneResult.data.length === 0) {
+                const sampleHurricanes = generateSampleHurricanes();
+                newHurricanes = convertBatch(sampleHurricanes, hurricaneToDataPoint);
+            }
+            
+            setDataPoints(prevPoints => {
+                const withoutHurricanes = prevPoints.filter(dp => dp.type !== 'hurricane');
+                const updated = [...withoutHurricanes, ...newHurricanes];
+                
+                if (markerManagerRef.current) {
+                    markerManagerRef.current.processDataPoints(updated);
+                }
+                
+                return updated;
+            });
+            console.log(`🌀 Hurricane data updated (${newHurricanes.length} events)`);
+        } catch (error) {
+            console.error('Error updating hurricane data:', error);
+        }
+    }, [showSimulatedData]);
+
+    const updateWindData = useCallback(async () => {
+        // Prevent concurrent wind fetches
+        if (windFetchInProgressRef.current) {
+            console.log('⚠️ Wind fetch already in progress, skipping...');
+            return;
+        }
+        
+        windFetchInProgressRef.current = true;
+        
+        try {
+            const windResult = await fetchWindPatterns(
+                () => {
+                    // Callback when rate limit is hit
+                    setWindRateLimited(true);
+                    setTimeout(() => setWindRateLimited(false), 5000);
+                },
+                (percentage: number) => {
+                    // Progress callback
+                    setLoadingStatus(`💨 Updating wind: ${percentage}%`);
+                }
+            );
+            
+            if (windResult.data.length > 0 && markerManagerRef.current) {
+                setLoadingStatus('💨 Generating wind streamlines...');
+                markerManagerRef.current.renderWindStreamlines(
+                    windResult.data,
+                    setLoadingStatus
+                );
+                console.log(`✅ Wind streamlines updated`);
+            }
+        } catch (error) {
+            console.error('Error updating wind data:', error);
+        } finally {
+            windFetchInProgressRef.current = false;
+            setTimeout(() => setLoadingStatus(''), 1000);
         }
     }, []);
 
@@ -269,26 +375,56 @@ function App() {
         }
     }, [severityThreshold]);
 
+    // Initial data load on mount
     useEffect(() => {
         loadData();
-        
-        // Auto-refresh every minute
-        const interval = setInterval(() => {
-            loadData();
-        }, 60000);
+    }, [loadData]);
 
-        return () => clearInterval(interval);
-    }, [loadData]); // Include loadData as dependency since it now uses useCallback
-
-    // ISS Position Updates (more frequent than other data)
+    // Individual data source update intervals
     useEffect(() => {
-        // Update ISS position every 1 second
+        // ISS: Every 1 second (fast-moving)
         const issInterval = setInterval(() => {
-            loadISSData();
+            updateISSData();
         }, 1000);
 
         return () => clearInterval(issInterval);
-    }, [loadISSData]);
+    }, [updateISSData]);
+
+    useEffect(() => {
+        // Earthquakes: Every 60 seconds
+        const eqInterval = setInterval(() => {
+            updateEarthquakeData();
+        }, 60000);
+
+        return () => clearInterval(eqInterval);
+    }, [updateEarthquakeData]);
+
+    useEffect(() => {
+        // Volcanoes: Every 120 seconds (slow-changing)
+        const volcanoInterval = setInterval(() => {
+            updateVolcanoData();
+        }, 120000);
+
+        return () => clearInterval(volcanoInterval);
+    }, [updateVolcanoData]);
+
+    useEffect(() => {
+        // Hurricanes: Every 30 seconds (moderate movement)
+        const hurricaneInterval = setInterval(() => {
+            updateHurricaneData();
+        }, 30000);
+
+        return () => clearInterval(hurricaneInterval);
+    }, [updateHurricaneData]);
+
+    useEffect(() => {
+        // Wind: Every 5 minutes (slow-changing weather patterns)
+        const windInterval = setInterval(() => {
+            updateWindData();
+        }, 300000);
+
+        return () => clearInterval(windInterval);
+    }, [updateWindData]);
 
     // Autopilot Mode Management
     useEffect(() => {
