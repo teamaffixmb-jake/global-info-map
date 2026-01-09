@@ -130,7 +130,14 @@ function CesiumMap({
                 viewerRef.current = null;
             }
         };
-    }, [addEvent, severityThreshold, setMapController, markerManagerRef]);
+    }, [setMapController, markerManagerRef]); // Removed addEvent and severityThreshold - they're updated via separate useEffects
+
+    // Update addEvent callback when it changes
+    useEffect(() => {
+        if (markerManagerRef.current) {
+            markerManagerRef.current.updateAddEvent(addEvent);
+        }
+    }, [addEvent, markerManagerRef]);
 
     // Update severity threshold
     useEffect(() => {
