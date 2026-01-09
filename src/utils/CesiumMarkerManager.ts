@@ -8,7 +8,7 @@
  * 4. Logging events based on severity threshold
  */
 
-import { Viewer, Entity, Cartesian3, Color, ColorMaterialProperty, PolygonHierarchy, Cartesian2, PolylineArrowMaterialProperty, ConstantProperty, ConstantPositionProperty } from 'cesium';
+import { Viewer, Entity, Cartesian3, Color, ColorMaterialProperty, PolygonHierarchy, Cartesian2, PolylineArrowMaterialProperty, ConstantProperty, ConstantPositionProperty, Quaternion, Matrix3 } from 'cesium';
 import { DataPoint, DataSourceType } from '../models/DataPoint';
 import { RawWind } from './converters';
 import { getMagnitudeColor, getMagnitudeRadius, formatAge, getVolcanicAlertColor, getVolcanicSize, getHurricaneColor, getHurricaneSize } from './helpers';
@@ -43,6 +43,22 @@ export class CesiumMarkerManager {
     private loggedEventIds: Set<string>;
     private streamlineEntities: Entity[];
     private cameraScaleFactor: number = 1.0;
+    
+    // ISS interpolation state
+    private issInterpolationState: {
+        basePosition: Cartesian3 | null;
+        angularVelocity: number; // radians per millisecond
+        orbitalPlaneNormal: Cartesian3 | null;
+        orbitalRadius: number;
+        lastUpdateTime: number;
+    } = {
+        basePosition: null,
+        angularVelocity: 0,
+        orbitalPlaneNormal: null,
+        orbitalRadius: 0,
+        lastUpdateTime: 0
+    };
+    private issRenderInterval: number | null = null;
 
     constructor(viewer: Viewer, addEventCallback: AddEventCallback | null = null, severityThreshold: number = 1) {
         this.viewer = viewer;
@@ -54,6 +70,146 @@ export class CesiumMarkerManager {
         
         // Listen to camera changes to update marker sizes
         this.setupCameraListener();
+        
+        // Start ISS interpolation rendering loop (10ms interval)
+        this.startISSInterpolation();
+    }
+    
+    /**
+     * Start the ISS rendering loop (runs every 10ms for smooth interpolation)
+     */
+    private startISSInterpolation(): void {
+        this.issRenderInterval = window.setInterval(() => {
+            this.interpolateISSPosition();
+        }, 10); // 10ms = 100fps
+    }
+    
+    /**
+     * Interpolate ISS position along its orbit (called every 10ms)
+     * This is the RENDERING loop - updates visual position only
+     */
+    private interpolateISSPosition(): void {
+        if (!this.issInterpolationState.basePosition || !this.issInterpolationState.orbitalPlaneNormal) {
+            return; // No ISS data yet
+        }
+        
+        // Find ISS entity
+        let issEntry: EntityEntry | null = null;
+        for (const [id, entry] of this.entities) {
+            if (entry.dataPoint.type === DataSourceType.ISS) {
+                issEntry = entry;
+                break;
+            }
+        }
+        
+        if (!issEntry) return;
+        
+        // Calculate time elapsed since last data update
+        const now = Date.now();
+        const deltaTime = now - this.issInterpolationState.lastUpdateTime;
+        
+        // Calculate angular displacement
+        const angularDisplacement = this.issInterpolationState.angularVelocity * deltaTime;
+        
+        // Rotate the base position around the orbital plane normal
+        const rotationAxis = this.issInterpolationState.orbitalPlaneNormal;
+        
+        // Create rotation quaternion
+        const rotationQuaternion = Quaternion.fromAxisAngle(rotationAxis, angularDisplacement, new Quaternion());
+        
+        // Rotate the base position
+        const rotationMatrix = Matrix3.fromQuaternion(rotationQuaternion, new Matrix3());
+        const interpolatedPosition = new Cartesian3();
+        Matrix3.multiplyByVector(rotationMatrix, this.issInterpolationState.basePosition, interpolatedPosition);
+        
+        // Update ISS entity position
+        issEntry.entity.position = new ConstantPositionProperty(interpolatedPosition);
+    }
+    
+    /**
+     * Update ISS data from API fetch (called every 1 second)
+     * This is the DATA UPDATE loop - computes orbit and velocity
+     */
+    public updateISSData(dataPoint: DataPoint, existing: EntityEntry): void {
+        const metadata = dataPoint.metadata as any;
+        const altitude = (metadata.altitude || 400) * 1000;
+        const newPosition = Cartesian3.fromDegrees(
+            dataPoint.lon,
+            dataPoint.lat,
+            altitude
+        );
+        
+        // Update description
+        existing.entity.description = new ConstantProperty(`
+            <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
+            ${dataPoint.description}<br>
+            Altitude: ${metadata.altitude} km<br>
+            Velocity: ${metadata.velocity} km/h
+        `);
+        
+        // Compute velocity vector from position change if we have a previous position
+        let velocityVector: Cartesian3 | undefined;
+        if (existing.previousPosition) {
+            velocityVector = Cartesian3.subtract(newPosition, existing.previousPosition, new Cartesian3());
+        }
+        
+        // Update orbital parameters for interpolation
+        if (velocityVector) {
+            const earthRadius = 6371000;
+            const orbitalRadius = earthRadius + altitude;
+            
+            // Calculate angular velocity (ω = v / r)
+            // velocityVector is displacement over 1 second, so magnitude is already in m/s
+            const velocityMagnitude = Cartesian3.magnitude(velocityVector);
+            const angularVelocity = velocityMagnitude / orbitalRadius; // radians per second
+            
+            // Get orbit normal (perpendicular to position and velocity)
+            const radialVector = Cartesian3.normalize(newPosition, new Cartesian3());
+            const velocityNormalized = Cartesian3.normalize(velocityVector, new Cartesian3());
+            const normal = Cartesian3.cross(radialVector, velocityNormalized, new Cartesian3());
+            Cartesian3.normalize(normal, normal);
+            
+            // Update interpolation state
+            this.issInterpolationState = {
+                basePosition: newPosition,
+                angularVelocity: angularVelocity / 1000, // Convert to radians per millisecond
+                orbitalPlaneNormal: normal,
+                orbitalRadius: orbitalRadius,
+                lastUpdateTime: Date.now()
+            };
+            
+            // Update orbit visualization using double-buffering
+            if (existing.orbitPathA || existing.orbitPathB) {
+                const orbitToUpdate = existing.currentOrbit === 'A' ? 'B' : 'A';
+                const orbitEntity = orbitToUpdate === 'A' ? existing.orbitPathA : existing.orbitPathB;
+                
+                if (orbitEntity && orbitEntity.polyline) {
+                    const positions = this.computeOrbitFromVelocity(newPosition, velocityVector, altitude);
+                    orbitEntity.polyline.positions = new ConstantProperty(positions);
+                }
+                
+                // Update entity entry
+                this.entities.set(dataPoint.id, {
+                    entity: existing.entity,
+                    dataPoint,
+                    orbitPathA: existing.orbitPathA,
+                    orbitPathB: existing.orbitPathB,
+                    currentOrbit: orbitToUpdate,
+                    previousPosition: newPosition
+                });
+            }
+        } else {
+            // First update - just set position directly and store for next time
+            existing.entity.position = new ConstantPositionProperty(newPosition);
+            this.entities.set(dataPoint.id, {
+                entity: existing.entity,
+                dataPoint,
+                orbitPathA: existing.orbitPathA,
+                orbitPathB: existing.orbitPathB,
+                currentOrbit: existing.currentOrbit,
+                previousPosition: newPosition
+            });
+        }
     }
     
     /**
@@ -261,66 +417,9 @@ export class CesiumMarkerManager {
      * Update an existing entity
      */
     private updateEntity(dataPoint: DataPoint, existing: EntityEntry): void {
-        // Special handling for ISS: update position in place to maintain tracking
+        // Special handling for ISS: delegate to updateISSData (data update loop, runs at 1 second interval)
         if (dataPoint.type === DataSourceType.ISS) {
-            const metadata = dataPoint.metadata as any;
-            const altitude = (metadata.altitude || 400) * 1000;
-            const newPosition = Cartesian3.fromDegrees(
-                dataPoint.lon, 
-                dataPoint.lat, 
-                altitude
-            );
-            
-            // Update position property
-            existing.entity.position = new ConstantPositionProperty(newPosition);
-            
-            // Update description
-            existing.entity.description = new ConstantProperty(`
-                <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>
-                ${dataPoint.description}<br>
-                Altitude: ${metadata.altitude} km<br>
-                Velocity: ${metadata.velocity} km/h
-            `);
-            
-            // Compute velocity vector from position change if we have a previous position
-            let velocityVector: Cartesian3 | undefined;
-            if (existing.previousPosition) {
-                velocityVector = Cartesian3.subtract(newPosition, existing.previousPosition, new Cartesian3());
-            }
-            
-            // Update orbit path using double-buffering to prevent flicker
-            // Modify the OLDEST orbit in place rather than deleting/creating
-            if (existing.orbitPathA || existing.orbitPathB) {
-                // Determine which orbit to update (the one that wasn't just modified)
-                const orbitToUpdate = existing.currentOrbit === 'A' ? 'B' : 'A';
-                const orbitEntity = orbitToUpdate === 'A' ? existing.orbitPathA : existing.orbitPathB;
-                
-                if (orbitEntity && orbitEntity.polyline && velocityVector) {
-                    // Regenerate orbit based on current position and velocity
-                    const positions = this.computeOrbitFromVelocity(newPosition, velocityVector, altitude);
-                    
-                    // Update positions in place - set the property value directly
-                    orbitEntity.polyline.positions = new ConstantProperty(positions);
-                }
-                
-                // Update entity entry - mark this orbit as the most recently modified
-                this.entities.set(dataPoint.id, {
-                    entity: existing.entity,
-                    dataPoint,
-                    orbitPathA: existing.orbitPathA,
-                    orbitPathB: existing.orbitPathB,
-                    currentOrbit: orbitToUpdate,
-                    previousPosition: newPosition
-                });
-            } else {
-                // No orbit exists yet (shouldn't happen), just update the dataPoint
-                this.entities.set(dataPoint.id, { 
-                    entity: existing.entity, 
-                    dataPoint,
-                    previousPosition: newPosition
-                });
-            }
-            
+            this.updateISSData(dataPoint, existing);
             // Don't log ISS updates (too frequent)
             return;
         }
@@ -889,6 +988,17 @@ export class CesiumMarkerManager {
      */
     updateAddEvent(callback: AddEventCallback | null): void {
         this.addEventCallback = callback;
+    }
+    
+    /**
+     * Cleanup and destroy the marker manager
+     */
+    destroy(): void {
+        // Stop ISS interpolation loop
+        if (this.issRenderInterval !== null) {
+            clearInterval(this.issRenderInterval);
+            this.issRenderInterval = null;
+        }
     }
 }
 
