@@ -236,6 +236,32 @@ function App() {
         setLastUpdate(now.toLocaleTimeString());
     };
 
+    // Load ISS data separately (called more frequently)
+    const loadISSData = useCallback(async () => {
+        try {
+            const issResult = await fetchISS();
+            
+            if (issResult.data) {
+                const issDataPoint = issToDataPoint(issResult.data);
+                
+                // Update dataPoints: remove old ISS, add new ISS
+                setDataPoints(prevPoints => {
+                    const withoutISS = prevPoints.filter(dp => dp.type !== 'iss');
+                    const updated = [...withoutISS, issDataPoint];
+                    
+                    // Update markers through marker manager
+                    if (markerManagerRef.current) {
+                        markerManagerRef.current.processDataPoints(updated);
+                    }
+                    
+                    return updated;
+                });
+            }
+        } catch (error) {
+            console.error('Error updating ISS position:', error);
+        }
+    }, []);
+
     // Update marker manager severity threshold when it changes
     useEffect(() => {
         if (markerManagerRef.current) {
@@ -253,6 +279,16 @@ function App() {
 
         return () => clearInterval(interval);
     }, [loadData]); // Include loadData as dependency since it now uses useCallback
+
+    // ISS Position Updates (more frequent than other data)
+    useEffect(() => {
+        // Update ISS position every 1 second
+        const issInterval = setInterval(() => {
+            loadISSData();
+        }, 1000);
+
+        return () => clearInterval(issInterval);
+    }, [loadISSData]);
 
     // Autopilot Mode Management
     useEffect(() => {
