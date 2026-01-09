@@ -152,9 +152,27 @@ function CesiumMap({
                         const issEntity = markerManagerRef.current?.getISSEntity();
                         
                         if (issEntity) {
-                            // Set as tracked entity - Cesium will automatically follow it
-                            viewer.trackedEntity = issEntity;
-                            console.log('🛰️ ISS tracking started');
+                            // Zoom to ISS with medium distance before tracking
+                            const issPosition = issEntity.position?.getValue(viewer.clock.currentTime);
+                            if (issPosition) {
+                                viewer.camera.flyTo({
+                                    destination: Cartesian3.fromElements(
+                                        issPosition.x * 1.8,  // Pull back for medium view
+                                        issPosition.y * 1.8,
+                                        issPosition.z * 1.8
+                                    ),
+                                    duration: 2.0,
+                                    complete: () => {
+                                        // After zoom completes, start tracking
+                                        viewer.trackedEntity = issEntity;
+                                        console.log('🛰️ ISS tracking started with medium distance');
+                                    }
+                                });
+                            } else {
+                                // If position not available, just track immediately
+                                viewer.trackedEntity = issEntity;
+                                console.log('🛰️ ISS tracking started');
+                            }
                         } else {
                             console.warn('⚠️ ISS entity not found for tracking');
                         }

@@ -29,6 +29,7 @@ interface EntityEntry {
     entity: Entity;
     dataPoint: DataPoint;
     timeLabel?: Entity; // Optional time label for earthquakes
+    orbitPath?: Entity; // Optional orbit visualization for ISS
 }
 
 export class CesiumMarkerManager {
@@ -208,9 +209,20 @@ export class CesiumMarkerManager {
         
         // Add time label if it exists (for earthquakes)
         const timeLabel = (entity as any)._timeLabel;
-        if (timeLabel) {
+        
+        // Add orbit path if it exists (for ISS)
+        const orbitPath = (entity as any)._orbitPath;
+        
+        if (timeLabel && orbitPath) {
+            this.viewer.entities.add(timeLabel);
+            this.viewer.entities.add(orbitPath);
+            this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPath });
+        } else if (timeLabel) {
             this.viewer.entities.add(timeLabel);
             this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel });
+        } else if (orbitPath) {
+            this.viewer.entities.add(orbitPath);
+            this.entities.set(dataPoint.id, { entity, dataPoint, orbitPath });
         } else {
             this.entities.set(dataPoint.id, { entity, dataPoint });
         }
@@ -229,10 +241,11 @@ export class CesiumMarkerManager {
         // Special handling for ISS: update position in place to maintain tracking
         if (dataPoint.type === DataSourceType.ISS) {
             const metadata = dataPoint.metadata as any;
+            const altitude = (metadata.altitude || 400) * 1000;
             const newPosition = Cartesian3.fromDegrees(
                 dataPoint.lon, 
                 dataPoint.lat, 
-                (metadata.altitude || 400) * 1000
+                altitude
             );
             
             // Update position property
@@ -246,18 +259,43 @@ export class CesiumMarkerManager {
                 Velocity: ${metadata.velocity} km/h
             `);
             
-            // Update the dataPoint reference
-            this.entities.set(dataPoint.id, { entity: existing.entity, dataPoint });
+            // Update orbit path if it exists
+            if (existing.orbitPath) {
+                // Regenerate orbit positions with new latitude
+                const positions: Cartesian3[] = [];
+                const segments = 360;
+                
+                for (let i = 0; i <= segments; i++) {
+                    const longitude = (i / segments) * 360 - 180;
+                    const position = Cartesian3.fromDegrees(longitude, dataPoint.lat, altitude);
+                    positions.push(position);
+                }
+                
+                // Update the polyline positions
+                if (existing.orbitPath.polyline) {
+                    existing.orbitPath.polyline.positions = new ConstantProperty(positions);
+                }
+            }
+            
+            // Update the dataPoint reference (keep orbit path)
+            this.entities.set(dataPoint.id, { 
+                entity: existing.entity, 
+                dataPoint,
+                orbitPath: existing.orbitPath 
+            });
             
             // Don't log ISS updates (too frequent)
             return;
         }
         
         // For all other entity types: recreate (original behavior)
-        // Remove old entity and time label
+        // Remove old entity, time label, and orbit path
         this.viewer.entities.remove(existing.entity);
         if (existing.timeLabel) {
             this.viewer.entities.remove(existing.timeLabel);
+        }
+        if (existing.orbitPath) {
+            this.viewer.entities.remove(existing.orbitPath);
         }
 
         // Create and add new entity
@@ -268,9 +306,18 @@ export class CesiumMarkerManager {
 
         // Add time label if it exists
         const timeLabel = (entity as any)._timeLabel;
-        if (timeLabel) {
+        const orbitPath = (entity as any)._orbitPath;
+        
+        if (timeLabel && orbitPath) {
+            this.viewer.entities.add(timeLabel);
+            this.viewer.entities.add(orbitPath);
+            this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPath });
+        } else if (timeLabel) {
             this.viewer.entities.add(timeLabel);
             this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel });
+        } else if (orbitPath) {
+            this.viewer.entities.add(orbitPath);
+            this.entities.set(dataPoint.id, { entity, dataPoint, orbitPath });
         } else {
             this.entities.set(dataPoint.id, { entity, dataPoint });
         }
@@ -288,6 +335,11 @@ export class CesiumMarkerManager {
             // Remove time label if it exists
             if (existing.timeLabel) {
                 this.viewer.entities.remove(existing.timeLabel);
+            }
+            
+            // Remove orbit path if it exists
+            if (existing.orbitPath) {
+                this.viewer.entities.remove(existing.orbitPath);
             }
 
             this.viewer.entities.remove(existing.entity);
@@ -467,14 +519,15 @@ export class CesiumMarkerManager {
     }
 
     /**
-     * Create ISS entity with satellite icon
+     * Create ISS entity with satellite icon and orbital path
      */
     private createISSEntity(dataPoint: DataPoint): Entity {
         const metadata = dataPoint.metadata as any;
+        const altitude = (metadata.altitude || 400) * 1000; // meters
 
         const entity = new Entity({
             id: dataPoint.id,
-            position: Cartesian3.fromDegrees(dataPoint.lon, dataPoint.lat, (metadata.altitude || 400) * 1000), // Altitude in meters
+            position: Cartesian3.fromDegrees(dataPoint.lon, dataPoint.lat, altitude),
             point: {
                 pixelSize: 8,
                 color: Color.CYAN,
@@ -498,7 +551,40 @@ export class CesiumMarkerManager {
             `
         });
 
+        // Create orbital path visualization
+        const orbitPath = this.createISSOrbitPath(dataPoint.lat, altitude);
+        (entity as any)._orbitPath = orbitPath;
+
         return entity;
+    }
+
+    /**
+     * Create a circular orbit path at ISS altitude
+     */
+    private createISSOrbitPath(currentLat: number, altitude: number): Entity {
+        // Create positions for a circular orbit
+        // Approximate orbit as a circle at the current latitude
+        const positions: Cartesian3[] = [];
+        const segments = 360; // One point per degree
+        
+        // Create circle around Earth at ISS altitude and approximate latitude
+        for (let i = 0; i <= segments; i++) {
+            const longitude = (i / segments) * 360 - 180;
+            const position = Cartesian3.fromDegrees(longitude, currentLat, altitude);
+            positions.push(position);
+        }
+
+        const orbitEntity = new Entity({
+            id: 'iss-orbit',
+            polyline: {
+                positions: positions,
+                width: 2,
+                material: new ColorMaterialProperty(Color.CYAN.withAlpha(0.4)),
+                clampToGround: false
+            }
+        });
+
+        return orbitEntity;
     }
 
     /**
