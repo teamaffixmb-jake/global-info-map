@@ -71,6 +71,7 @@ The built files will be in the `dist/` directory, ready to deploy to any static 
 - 🚦 **Rate Limit Handling** - Graceful API rate limit detection with retry logic
 - 🌙 **Dark Mode** - CartoDB Dark Matter tiles with starry night sky background
 - ✈️ **Autopilot Mode** - Screensaver with rotate, wander, and ISS tracking modes
+- 🔀 **Auto-Switch** - Random mode cycling every 30s-3min for hands-free screensaver
 - 📏 **Camera Height Display** - Real-time altitude indicator for spatial orientation
 - 🎨 **Dynamic Marker Scaling** - Markers scale with zoom level to prevent overlap
 
@@ -300,51 +301,116 @@ marker.setRadius(baseSize * scale);
 
 ### Autopilot Mode ✈️
 
-**Autopilot** is a screensaver-like feature that automates camera movement for hands-free viewing. Toggle it on/off with the checkbox in the top-left corner.
+**Autopilot** is a screensaver-like feature that automates camera movement for hands-free viewing. Enable it with the checkbox in the top-left corner.
 
-#### Implemented Modes ✅
+#### Available Modes
 
-1. **🔄 Rotate Mode** (Active)
+**Manual Mode Selection**
+When Autopilot is enabled, choose from three modes:
+
+1. **🔄 Rotate Mode**
    - Slow, continuous globe rotation
-   - Smooth right-to-left motion
-   - Maintains current zoom level
-   - Can be interrupted by manual camera control
+   - Smooth right-to-left motion at current altitude
+   - Camera adjusts to 8Mm altitude for optimal viewing
+   - Rotates around current location after coming from other modes
 
-#### Planned Modes 🚧
+2. **🎲 Wander Mode**
+   - Intelligently explores events based on severity
+   - **Probabilistic selection**: Weights events by severity (exponential: 2^severity)
+   - **Recently visited tracking**: Avoids revisiting same events (keeps last 20)
+   - **Automatic rotation**: Camera orbits around each selected event
+   - **10-second intervals**: Switches to new event every 10 seconds
+   - **Smart filtering**: Excludes ISS and recently visited events
+   - **Clears history**: Resets when all events have been visited
 
-2. **🎲 Wander Mode** (Not Yet Implemented)
-   - Bounces between events based on severity/importance
-   - Probabilistic selection favoring high-severity events
-   - Avoids repeating recently visited events
-   - Zooms in to show event details
-   - Switches back to rotate mode after several events
-
-3. **🛰️ ISS Mode** (Not Yet Implemented)
+3. **🛰️ ISS Tracking Mode**
    - Tracks the International Space Station in real-time
-   - Automatically selects and follows the ISS
-   - Shows ISS beacon effect (yellow pulsing circles)
-   - Maintains optimal viewing distance
-   - Updates as ISS moves along its orbit
+   - **Smooth interpolation**: 100Hz rendering with velocity-based positioning
+   - **Dynamic orbit**: Computes orbital path from instantaneous velocity
+   - **Camera tracking**: Follows ISS with auto-rotation around it
+   - **Optimal distance**: 3Mm back, 2Mm up from ISS
+   - **1-second updates**: Fetches new position data every second
+
+#### Auto-Switch Mode 🔀
+
+**Enable Auto-Switch** for a hands-free screensaver that cycles through all modes automatically.
+
+**How it works:**
+- Toggle "Auto-Switch" checkbox (appears when Autopilot is enabled)
+- **Random intervals**: Switches modes every 30 seconds to 3 minutes
+- **Random mode selection**: Picks between Rotate, Wander, and ISS modes
+- **Mode radio buttons hidden**: When Auto-Switch is on, manual mode selection is disabled
+- **Automatic restart**: Each mode switch generates a new random interval
+- **Console logging**: Shows which mode is active and time until next switch
+
+**Example flow:**
+```
+Auto-Switch enabled
+→ Starts in Rotate mode (random: 45 seconds)
+→ Switches to Wander mode (random: 2 minutes 15 seconds)  
+→ Switches to ISS mode (random: 1 minute 30 seconds)
+→ Switches to Rotate mode (random: 50 seconds)
+→ Continues indefinitely...
+```
 
 #### Technical Implementation
 
 ```typescript
-// Autopilot state management
+// State management
 const [autopilotEnabled, setAutopilotEnabled] = useState(false);
 const [autopilotMode, setAutopilotMode] = useState<'rotate' | 'wander' | 'iss'>('rotate');
+const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(false);
 
-// Mode switcher cycles through submodes
+// Auto-switch logic with random intervals
 useEffect(() => {
-    if (!autopilotEnabled) return;
+    if (!autopilotEnabled || !autoSwitchEnabled) return;
     
-    if (autopilotMode === 'rotate') {
-        mapController?.startRotation();
+    const switchMode = () => {
+        const modes = ['rotate', 'wander', 'iss'];
+        const randomMode = modes[Math.floor(Math.random() * modes.length)];
+        setAutopilotMode(randomMode);
+        
+        // Random delay: 30s to 3min
+        const delay = Math.floor(Math.random() * 150000) + 30000;
+        setTimeout(switchMode, delay);
+    };
+    
+    switchMode(); // Start immediately
+}, [autopilotEnabled, autoSwitchEnabled]);
+
+// Mode execution
+useEffect(() => {
+    if (!autopilotEnabled || !mapController) return;
+    
+    switch (autopilotMode) {
+        case 'rotate':
+            mapController.adjustAltitudeForRotation();
+            setTimeout(() => mapController.startRotation(), 2000);
+            break;
+        case 'wander':
+            // Probabilistic event selection and navigation
+            break;
+        case 'iss':
+            mapController.startISSTracking();
+            break;
     }
-    // Future: wander, ISS modes
-}, [autopilotEnabled, autopilotMode]);
+    
+    return () => {
+        mapController.stopRotation();
+        mapController.stopISSTracking();
+        if (autopilotMode === 'wander') {
+            mapController.clearSelection();
+        }
+    };
+}, [autopilotEnabled, autopilotMode, mapController]);
 ```
 
-The autopilot system is designed to be extensible, with additional modes planned for future releases.
+**Key Features:**
+- ✅ Mutually exclusive modes (only one active at a time)
+- ✅ Clean transitions with proper cleanup
+- ✅ Rotation timeout tracking for mode switching
+- ✅ Deselects entities when leaving wander mode
+- ✅ Auto-Switch provides fully automated screensaver experience
 
 ## 🏗️ Architecture Overview
 
@@ -1131,7 +1197,7 @@ This project is open source and available for educational and demonstration purp
 ---
 
 **Last Updated**: January 2026  
-**Version**: 5.1.0 (ISS Tracking & Interpolation)  
+**Version**: 5.2.2 (Auto-Switch & NPM Package)  
 **Status**: Production Ready  
-**Recent Changes**: ISS smooth interpolation (100Hz), dynamic orbit computation, double-buffered visualization, autopilot wander & ISS modes, staggered data updates  
-**Milestone**: Advanced ISS tracking with real-time orbit computation and flicker-free visualization!
+**Recent Changes**: Auto-Switch mode with random intervals (30s-3min), npm package with CLI, static file server for global install, ISS smooth interpolation (100Hz), dynamic orbit computation, double-buffered visualization, autopilot wander & ISS modes, staggered data updates  
+**Milestone**: Fully automated screensaver with intelligent mode cycling! Available as npm package: `npm install -g global-data-screensaver`
