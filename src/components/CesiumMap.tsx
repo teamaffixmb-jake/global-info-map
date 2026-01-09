@@ -45,6 +45,7 @@ function CesiumMap({
     const containerRef = useRef<HTMLDivElement>(null);
     const viewerRef = useRef<Viewer | null>(null);
     const rotationIntervalRef = useRef<number | null>(null);
+    const issTrackingActiveRef = useRef<boolean>(false);
 
     // Initialize Cesium viewer
     useEffect(() => {
@@ -179,6 +180,9 @@ function CesiumMap({
                         console.log(`🔄 Adjusting altitude for rotation at (${currentLon.toFixed(2)}°, ${currentLat.toFixed(2)}°)`);
                     },
                     startISSTracking: () => {
+                        // Mark ISS tracking as active
+                        issTrackingActiveRef.current = true;
+                        
                         // Get ISS entity from marker manager
                         const issEntity = markerManagerRef.current?.getISSEntity();
                         
@@ -198,21 +202,28 @@ function CesiumMap({
                                     ),
                                     duration: 2.0,
                                     complete: () => {
-                                        // After animation completes, start tracking with viewFrom offset
-                                        viewer.trackedEntity = issEntity;
-                                        console.log('🛰️ ISS tracking started with orbit view distance');
+                                        // Only start tracking if ISS mode is still active
+                                        if (issTrackingActiveRef.current) {
+                                            viewer.trackedEntity = issEntity;
+                                            console.log('🛰️ ISS tracking started with orbit view distance');
+                                        }
                                     }
                                 });
                             } else {
                                 // If position not available, just track immediately with offset
-                                viewer.trackedEntity = issEntity;
-                                console.log('🛰️ ISS tracking started');
+                                if (issTrackingActiveRef.current) {
+                                    viewer.trackedEntity = issEntity;
+                                    console.log('🛰️ ISS tracking started');
+                                }
                             }
                         } else {
                             console.warn('⚠️ ISS entity not found for tracking');
                         }
                     },
                     stopISSTracking: () => {
+                        // Mark ISS tracking as inactive
+                        issTrackingActiveRef.current = false;
+                        
                         // Clear tracked entity
                         if (viewer.trackedEntity) {
                             viewer.trackedEntity = undefined;

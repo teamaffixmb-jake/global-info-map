@@ -84,6 +84,9 @@ function App() {
     
     // Track recently visited events for wander mode (to avoid immediate revisits)
     const recentlyVisitedRef = useRef<Set<string>>(new Set());
+    
+    // Track rotation start timeout to ensure it can be cleared when switching modes
+    const rotationStartTimeoutRef = useRef<number | null>(null);
 
     const addEvent = useCallback((
         type: string, 
@@ -452,7 +455,7 @@ function App() {
                 // When entering rotate mode, adjust altitude but keep current position
                 mapController.adjustAltitudeForRotation();
                 // Wait for camera adjustment animation to complete before starting rotation
-                setTimeout(() => {
+                rotationStartTimeoutRef.current = window.setTimeout(() => {
                     mapController.startRotation();
                 }, 2000); // Match the flyTo duration
                 break;
@@ -528,6 +531,13 @@ function App() {
         // Cleanup when mode changes or autopilot is disabled
         return () => {
             console.log(`🧹 Cleaning up autopilot mode: ${autopilotMode}`);
+            
+            // Clear rotation start timeout if pending
+            if (rotationStartTimeoutRef.current !== null) {
+                clearTimeout(rotationStartTimeoutRef.current);
+                rotationStartTimeoutRef.current = null;
+            }
+            
             if (mapController) {
                 mapController.stopRotation();
                 mapController.stopISSTracking();
