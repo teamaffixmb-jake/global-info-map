@@ -79,6 +79,9 @@ function App() {
     
     // Track if wind fetch is in progress to prevent concurrent fetches
     const windFetchInProgressRef = useRef<boolean>(false);
+    
+    // Track recently visited events for wander mode (to avoid immediate revisits)
+    const recentlyVisitedRef = useRef<Set<string>>(new Set());
 
     const addEvent = useCallback((
         type: string, 
@@ -261,24 +264,75 @@ function App() {
             return;
         }
 
+        console.log(`🚁 Autopilot mode changing to: ${autopilotMode}`);
+        let wanderInterval: number | null = null;
+
         // Execute current autopilot mode
         switch (autopilotMode) {
             case 'rotate':
-                // When entering rotate mode, reset camera if needed (e.g., coming from wander mode)
-                if (cameraHeight < 1000000) { // If zoomed in too close
-                    mapController.resetCamera();
-                    // Wait for camera reset before starting rotation
-                    setTimeout(() => {
-                        mapController.startRotation();
-                    }, 2000);
-                } else {
-                    mapController.startRotation();
-                }
+                // When entering rotate mode, start rotation
+                mapController.startRotation();
                 break;
 
             case 'wander':
-                // TODO: Implement wander mode
-                console.log('🎲 Wander mode - to be implemented');
+                console.log('🎲 Wander mode activated');
+                
+                // Function to select event weighted by severity
+                const selectEvent = (): DataPoint | null => {
+                    // Filter out ISS and recently visited events
+                    const candidates = dataPoints.filter(dp => 
+                        dp.type !== 'iss' && !recentlyVisitedRef.current.has(dp.id)
+                    );
+                    
+                    if (candidates.length === 0) {
+                        // All visited - clear history and retry
+                        console.log('🎲 All events visited, clearing history');
+                        recentlyVisitedRef.current.clear();
+                        const fallback = dataPoints.filter(dp => dp.type !== 'iss');
+                        if (fallback.length === 0) return null;
+                        return fallback[Math.floor(Math.random() * fallback.length)];
+                    }
+                    
+                    // Weight by severity (exponential: 2^severity)
+                    const weights = candidates.map(dp => Math.pow(2, dp.severity));
+                    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+                    
+                    // Random selection weighted by severity
+                    let random = Math.random() * totalWeight;
+                    for (let i = 0; i < candidates.length; i++) {
+                        random -= weights[i];
+                        if (random <= 0) {
+                            return candidates[i];
+                        }
+                    }
+                    
+                    return candidates[0]; // Fallback
+                };
+                
+                // Function to visit next event
+                const visitNext = () => {
+                    const event = selectEvent();
+                    if (event) {
+                        console.log(`🎲 Visiting: ${event.title} (Severity: ${event.severity})`);
+                        recentlyVisitedRef.current.add(event.id);
+                        mapController.zoomTo(event.lat, event.lon, { markerId: event.id });
+                        
+                        // Keep history manageable (last 20)
+                        if (recentlyVisitedRef.current.size > 20) {
+                            const arr = Array.from(recentlyVisitedRef.current);
+                            recentlyVisitedRef.current = new Set(arr.slice(-20));
+                        }
+                    } else {
+                        console.log('🎲 No events to visit');
+                    }
+                };
+                
+                // Visit first event immediately
+                visitNext();
+                
+                // Then visit every 10 seconds
+                wanderInterval = window.setInterval(visitNext, 10000);
+                console.log('🎲 Wander interval started (10s)');
                 break;
 
             case 'iss':
@@ -289,11 +343,16 @@ function App() {
 
         // Cleanup when mode changes or autopilot is disabled
         return () => {
+            console.log(`🧹 Cleaning up autopilot mode: ${autopilotMode}`);
             if (mapController) {
                 mapController.stopRotation();
             }
+            if (wanderInterval !== null) {
+                console.log('🧹 Clearing wander interval');
+                clearInterval(wanderInterval);
+            }
         };
-    }, [autopilotEnabled, autopilotMode, mapController, cameraHeight]);
+    }, [autopilotEnabled, autopilotMode, mapController]);
 
     // Calculate counts by type
     const getCountsByType = (): Record<string, number> => {
