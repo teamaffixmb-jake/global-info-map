@@ -661,20 +661,22 @@ function App() {
                         </label>
                     </div>
                     
-                    {/* Auto-Switch Toggle */}
-                    <div className="auto-switch-toggle">
-                        <label className="autopilot-label">
-                            <input 
-                                type="checkbox" 
-                                checked={autoSwitchEnabled}
-                                onChange={(e) => setAutoSwitchEnabled(e.target.checked)}
-                                className="autopilot-checkbox"
-                            />
-                            <span className="autopilot-text">
-                                Auto-Switch
-                            </span>
-                        </label>
-                    </div>
+                    {/* Auto-Switch Toggle - only show when Autopilot is enabled */}
+                    {autopilotEnabled && (
+                        <div className="auto-switch-toggle">
+                            <label className="autopilot-label">
+                                <input 
+                                    type="checkbox" 
+                                    checked={autoSwitchEnabled}
+                                    onChange={(e) => setAutoSwitchEnabled(e.target.checked)}
+                                    className="autopilot-checkbox"
+                                />
+                                <span className="autopilot-text">
+                                    Auto-Switch
+                                </span>
+                            </label>
+                        </div>
+                    )}
                     
                     {/* Autopilot Mode Selector */}
                     {autopilotEnabled && !autoSwitchEnabled && (
