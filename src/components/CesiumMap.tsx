@@ -15,6 +15,9 @@ Ion.defaultAccessToken = '';
 
 interface MapController {
     zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => void;
+    startRotation: () => void;
+    stopRotation: () => void;
+    resetCamera: () => void;
 }
 
 interface CesiumMapProps {
@@ -36,6 +39,7 @@ function CesiumMap({
 }: CesiumMapProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewerRef = useRef<Viewer | null>(null);
+    const rotationIntervalRef = useRef<number | null>(null);
 
     // Initialize Cesium viewer
     useEffect(() => {
@@ -102,6 +106,44 @@ function CesiumMap({
                                 markerManagerRef.current?.openInfoBoxForEntity(data.markerId!);
                             }, 2500);
                         }
+                    },
+                    startRotation: () => {
+                        // Stop any existing rotation
+                        if (rotationIntervalRef.current) {
+                            clearInterval(rotationIntervalRef.current);
+                        }
+                        
+                        // Slow rotation: rotate the globe around its axis
+                        // Rotation speed: ~0.1 degrees per frame (60fps = 6 degrees/sec = full rotation in 60 seconds)
+                        const rotationSpeed = 0.0003; // radians per frame
+                        
+                        rotationIntervalRef.current = window.setInterval(() => {
+                            if (viewer.camera) {
+                                viewer.camera.rotateRight(rotationSpeed);
+                            }
+                        }, 16); // ~60fps
+                        
+                        console.log('🔄 Globe rotation started');
+                    },
+                    stopRotation: () => {
+                        if (rotationIntervalRef.current) {
+                            clearInterval(rotationIntervalRef.current);
+                            rotationIntervalRef.current = null;
+                            console.log('⏹️ Globe rotation stopped');
+                        }
+                    },
+                    resetCamera: () => {
+                        // Reset to a nice global view
+                        viewer.camera.flyTo({
+                            destination: Cartesian3.fromDegrees(0, 20, 15000000), // Center on equator, 15M meters altitude
+                            duration: 2.0,
+                            orientation: {
+                                heading: 0,
+                                pitch: -Math.PI / 2, // Look straight down
+                                roll: 0
+                            }
+                        });
+                        console.log('🌍 Camera reset to global view');
                     }
                 });
 
@@ -125,6 +167,12 @@ function CesiumMap({
 
         // Cleanup on unmount
         return () => {
+            // Stop rotation if active
+            if (rotationIntervalRef.current) {
+                clearInterval(rotationIntervalRef.current);
+                rotationIntervalRef.current = null;
+            }
+            
             if (viewerRef.current) {
                 viewerRef.current.destroy();
                 viewerRef.current = null;

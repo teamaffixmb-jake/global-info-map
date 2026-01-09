@@ -42,6 +42,9 @@ import { CesiumMarkerManager } from './utils/CesiumMarkerManager';
 
 interface MapController {
     zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => void;
+    startRotation: () => void;
+    stopRotation: () => void;
+    resetCamera: () => void;
 }
 
 interface EventData {
@@ -69,6 +72,7 @@ function App() {
     const [windRateLimited, setWindRateLimited] = useState<boolean>(false); // Wind API rate limit warning
     const [cameraHeight, setCameraHeight] = useState<number>(0); // Camera altitude in meters
     const [autopilotEnabled, setAutopilotEnabled] = useState<boolean>(false); // Autopilot/screensaver mode
+    const [autopilotMode, _setAutopilotMode] = useState<'rotate' | 'wander' | 'iss'>('rotate'); // Current autopilot submode - _setAutopilotMode will be used for mode switching later
     
     // Store marker manager instance
     const markerManagerRef = useRef<CesiumMarkerManager | null>(null);
@@ -246,6 +250,50 @@ function App() {
 
         return () => clearInterval(interval);
     }, [loadData]); // Include loadData as dependency since it now uses useCallback
+
+    // Autopilot Mode Management
+    useEffect(() => {
+        if (!autopilotEnabled || !mapController) {
+            // Stop any active modes when autopilot is disabled
+            if (mapController) {
+                mapController.stopRotation();
+            }
+            return;
+        }
+
+        // Execute current autopilot mode
+        switch (autopilotMode) {
+            case 'rotate':
+                // When entering rotate mode, reset camera if needed (e.g., coming from wander mode)
+                if (cameraHeight < 1000000) { // If zoomed in too close
+                    mapController.resetCamera();
+                    // Wait for camera reset before starting rotation
+                    setTimeout(() => {
+                        mapController.startRotation();
+                    }, 2000);
+                } else {
+                    mapController.startRotation();
+                }
+                break;
+
+            case 'wander':
+                // TODO: Implement wander mode
+                console.log('🎲 Wander mode - to be implemented');
+                break;
+
+            case 'iss':
+                // TODO: Implement ISS tracking mode
+                console.log('🛰️ ISS mode - to be implemented');
+                break;
+        }
+
+        // Cleanup when mode changes or autopilot is disabled
+        return () => {
+            if (mapController) {
+                mapController.stopRotation();
+            }
+        };
+    }, [autopilotEnabled, autopilotMode, mapController, cameraHeight]);
 
     // Calculate counts by type
     const getCountsByType = (): Record<string, number> => {
