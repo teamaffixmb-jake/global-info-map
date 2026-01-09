@@ -45,6 +45,8 @@ interface MapController {
     startRotation: () => void;
     stopRotation: () => void;
     resetCamera: () => void;
+    startISSTracking: () => void;
+    stopISSTracking: () => void;
 }
 
 interface EventData {
@@ -513,8 +515,9 @@ function App() {
                 break;
 
             case 'iss':
-                // TODO: Implement ISS tracking mode
-                console.log('🛰️ ISS mode - to be implemented');
+                console.log('🛰️ ISS tracking mode activated');
+                // Start tracking the ISS entity
+                mapController.startISSTracking();
                 break;
         }
 
@@ -523,6 +526,7 @@ function App() {
             console.log(`🧹 Cleaning up autopilot mode: ${autopilotMode}`);
             if (mapController) {
                 mapController.stopRotation();
+                mapController.stopISSTracking();
             }
             if (wanderInterval !== null) {
                 console.log('🧹 Clearing wander interval');

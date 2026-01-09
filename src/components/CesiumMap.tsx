@@ -18,6 +18,8 @@ interface MapController {
     startRotation: () => void;
     stopRotation: () => void;
     resetCamera: () => void;
+    startISSTracking: () => void;
+    stopISSTracking: () => void;
 }
 
 interface CesiumMapProps {
@@ -144,6 +146,25 @@ function CesiumMap({
                             }
                         });
                         console.log('🌍 Camera reset to global view');
+                    },
+                    startISSTracking: () => {
+                        // Get ISS entity from marker manager
+                        const issEntity = markerManagerRef.current?.getISSEntity();
+                        
+                        if (issEntity) {
+                            // Set as tracked entity - Cesium will automatically follow it
+                            viewer.trackedEntity = issEntity;
+                            console.log('🛰️ ISS tracking started');
+                        } else {
+                            console.warn('⚠️ ISS entity not found for tracking');
+                        }
+                    },
+                    stopISSTracking: () => {
+                        // Clear tracked entity
+                        if (viewer.trackedEntity) {
+                            viewer.trackedEntity = undefined;
+                            console.log('⏹️ ISS tracking stopped');
+                        }
                     }
                 });
 

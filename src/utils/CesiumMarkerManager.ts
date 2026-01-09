@@ -186,6 +186,18 @@ export class CesiumMarkerManager {
     }
 
     /**
+     * Get the ISS entity for tracking
+     */
+    public getISSEntity(): Entity | null {
+        for (const [id, entry] of this.entities) {
+            if (entry.dataPoint.type === DataSourceType.ISS) {
+                return entry.entity;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Add a new entity to the globe
      */
     private addEntity(dataPoint: DataPoint): void {
