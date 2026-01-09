@@ -82,6 +82,11 @@ function App() {
     const [autopilotMode, setAutopilotMode] = useState<'rotate' | 'wander' | 'iss'>('rotate'); // Current autopilot submode
     const [autoSwitchEnabled, setAutoSwitchEnabled] = useState<boolean>(false); // Auto-switch between modes
     
+    // Fade-out states for smooth status transitions
+    const [earthquakeFading, setEarthquakeFading] = useState<boolean>(false);
+    const [volcanoFading, setVolcanoFading] = useState<boolean>(false);
+    const [generalFading, setGeneralFading] = useState<boolean>(false);
+    
     // Store marker manager instance
     const markerManagerRef = useRef<CesiumMarkerManager | null>(null);
     
@@ -93,6 +98,81 @@ function App() {
     
     // Track rotation start timeout to ensure it can be cleared when switching modes
     const rotationStartTimeoutRef = useRef<number | null>(null);
+    
+    // Track previous loading states to detect transitions
+    const prevEarthquakeLoadingRef = useRef<boolean>(false);
+    const prevVolcanoLoadingRef = useRef<boolean>(false);
+    const prevLoadingStatusRef = useRef<string>('');
+
+    // Handle fade-out animation for earthquake loading status
+    useEffect(() => {
+        const prevValue = prevEarthquakeLoadingRef.current;
+        prevEarthquakeLoadingRef.current = earthquakeLoading;
+        
+        if (prevValue && !earthquakeLoading) {
+            // Status just transitioned from true to false, trigger fade-out
+            setEarthquakeFading(true);
+            const timer = setTimeout(() => {
+                setEarthquakeFading(false);
+            }, 3000) as unknown as number; // Match the CSS transition duration
+            return () => clearTimeout(timer);
+        } else if (earthquakeLoading) {
+            // Status is active, ensure it's not fading
+            setEarthquakeFading(false);
+        }
+    }, [earthquakeLoading]);
+
+    // Handle fade-out animation for volcano loading status
+    useEffect(() => {
+        const prevValue = prevVolcanoLoadingRef.current;
+        prevVolcanoLoadingRef.current = volcanoLoading;
+        
+        console.log(`[Volcano Fade] prevValue=${prevValue}, volcanoLoading=${volcanoLoading}`);
+        
+        if (prevValue && !volcanoLoading) {
+            // Status just transitioned from true to false, trigger fade-out
+            console.log('[Volcano Fade] Starting fade-out (3s)');
+            setVolcanoFading(true);
+            const timer = setTimeout(() => {
+                console.log('[Volcano Fade] Fade-out complete, hiding element');
+                setVolcanoFading(false);
+            }, 3000) as unknown as number; // Match the CSS transition duration
+            return () => {
+                console.log('[Volcano Fade] Cleanup: clearing timer');
+                clearTimeout(timer);
+            };
+        } else if (volcanoLoading) {
+            // Status is active, ensure it's not fading
+            console.log('[Volcano Fade] Loading active, stopping any fade');
+            setVolcanoFading(false);
+        }
+    }, [volcanoLoading]);
+
+    // Handle fade-out animation for general loading status
+    useEffect(() => {
+        const prevValue = prevLoadingStatusRef.current;
+        prevLoadingStatusRef.current = loadingStatus;
+        
+        console.log(`[General Fade] prevValue="${prevValue}", loadingStatus="${loadingStatus}"`);
+        
+        if (prevValue && !loadingStatus) {
+            // Status just transitioned from non-empty to empty, trigger fade-out
+            console.log('[General Fade] Starting fade-out (3s)');
+            setGeneralFading(true);
+            const timer = setTimeout(() => {
+                console.log('[General Fade] Fade-out complete, hiding element');
+                setGeneralFading(false);
+            }, 3000) as unknown as number; // Match the CSS transition duration
+            return () => {
+                console.log('[General Fade] Cleanup: clearing timer');
+                clearTimeout(timer);
+            };
+        } else if (loadingStatus) {
+            // Status is active, ensure it's not fading
+            console.log('[General Fade] Loading active, stopping any fade');
+            setGeneralFading(false);
+        }
+    }, [loadingStatus]);
 
     const addEvent = useCallback((
         type: string, 
@@ -299,8 +379,10 @@ function App() {
 
     const updateVolcanoData = useCallback(async () => {
         try {
+            console.log('[Volcano Update] Starting volcano fetch...');
             setVolcanoLoading(true);
             const volcanicResult = await fetchVolcanic();
+            console.log('[Volcano Update] Fetch complete, processing data...');
             const newVolcanoes = convertBatch(volcanicResult.data, volcanoToDataPoint);
             
             setDataPoints(prevPoints => {
@@ -319,6 +401,7 @@ function App() {
         } catch (error) {
             console.error('Error updating volcano data:', error);
         } finally {
+            console.log('[Volcano Update] Fetch complete, setting volcanoLoading=false');
             setVolcanoLoading(false);
         }
     }, []);
@@ -730,18 +813,18 @@ function App() {
                     
                     {/* Loading Status Indicators */}
                     <div className="loading-status-container">
-                        {earthquakeLoading && (
-                            <div className="loading-status">
+                        {(earthquakeLoading || earthquakeFading) && (
+                            <div className={`loading-status${!earthquakeLoading && earthquakeFading ? ' fade-out' : ''}`}>
                                 🌍 Fetching earthquake data...
                             </div>
                         )}
-                        {volcanoLoading && (
-                            <div className="loading-status">
+                        {(volcanoLoading || volcanoFading) && (
+                            <div className={`loading-status${!volcanoLoading && volcanoFading ? ' fade-out' : ''}`}>
                                 🌋 Fetching volcano data...
                             </div>
                         )}
-                        {loadingStatus && (
-                            <div className="loading-status">
+                        {(loadingStatus || generalFading) && (
+                            <div className={`loading-status${!loadingStatus && generalFading ? ' fade-out' : ''}`}>
                                 {loadingStatus}
                             </div>
                         )}
