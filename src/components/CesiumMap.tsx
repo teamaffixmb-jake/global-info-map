@@ -62,10 +62,10 @@ function CesiumMap({
                 // Remove default imagery layers
                 viewer.imageryLayers.removeAll();
 
-                // Add OpenStreetMap imagery (free, no authentication, proper CORS)
+                // Add CartoDB Dark Matter tiles (dark mode theme)
                 const imageryProvider = new UrlTemplateImageryProvider({
-                    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    credit: '© OpenStreetMap contributors'
+                    url: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    credit: '© OpenStreetMap contributors, © CartoDB'
                 });
                 viewer.imageryLayers.addImageryProvider(imageryProvider);
 
