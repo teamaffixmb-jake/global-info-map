@@ -184,17 +184,17 @@ function CesiumMap({
                         
                         if (issEntity) {
                             // Set viewing distance offset - this controls how far the camera is from the ISS when tracking
-                            // Using a larger offset so we can see the orbit
-                            issEntity.viewFrom = new Cartesian3(0, -15000000, 10000000); // Back 15Mm, up 10Mm
+                            // Closer view while still showing some orbit
+                            issEntity.viewFrom = new Cartesian3(0, -3000000, 2000000); // Back 3Mm, up 2Mm
                             
                             // Fly to ISS position first for smooth animation
                             const issPosition = issEntity.position?.getValue(viewer.clock.currentTime);
                             if (issPosition) {
                                 viewer.camera.flyTo({
                                     destination: Cartesian3.fromElements(
-                                        issPosition.x * 3.0,  // Pull back farther to see orbit
-                                        issPosition.y * 3.0,
-                                        issPosition.z * 3.0
+                                        issPosition.x * 1.5,  // Closer zoom
+                                        issPosition.y * 1.5,
+                                        issPosition.z * 1.5
                                     ),
                                     duration: 2.0,
                                     complete: () => {
