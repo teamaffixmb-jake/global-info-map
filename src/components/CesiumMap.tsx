@@ -206,6 +206,15 @@ function CesiumMap({
                                         if (issTrackingActiveRef.current) {
                                             viewer.trackedEntity = issEntity;
                                             console.log('🛰️ ISS tracking started with orbit view distance');
+                                            
+                                            // Start rotation around the ISS
+                                            const rotationSpeed = 0.0003; // radians per frame
+                                            rotationIntervalRef.current = window.setInterval(() => {
+                                                if (viewer.camera && issTrackingActiveRef.current) {
+                                                    viewer.camera.rotateRight(rotationSpeed);
+                                                }
+                                            }, 16); // ~60fps
+                                            console.log('🔄 ISS rotation started');
                                         }
                                     }
                                 });
@@ -214,6 +223,15 @@ function CesiumMap({
                                 if (issTrackingActiveRef.current) {
                                     viewer.trackedEntity = issEntity;
                                     console.log('🛰️ ISS tracking started');
+                                    
+                                    // Start rotation around the ISS
+                                    const rotationSpeed = 0.0003; // radians per frame
+                                    rotationIntervalRef.current = window.setInterval(() => {
+                                        if (viewer.camera && issTrackingActiveRef.current) {
+                                            viewer.camera.rotateRight(rotationSpeed);
+                                        }
+                                    }, 16); // ~60fps
+                                    console.log('🔄 ISS rotation started');
                                 }
                             }
                         } else {
@@ -223,6 +241,12 @@ function CesiumMap({
                     stopISSTracking: () => {
                         // Mark ISS tracking as inactive
                         issTrackingActiveRef.current = false;
+                        
+                        // Stop rotation
+                        if (rotationIntervalRef.current) {
+                            clearInterval(rotationIntervalRef.current);
+                            rotationIntervalRef.current = null;
+                        }
                         
                         // Clear tracked entity
                         if (viewer.trackedEntity) {
