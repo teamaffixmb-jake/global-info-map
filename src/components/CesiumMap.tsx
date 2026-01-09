@@ -23,6 +23,7 @@ interface MapController {
     adjustAltitudeForRotation: () => void;
     startISSTracking: () => void;
     stopISSTracking: () => void;
+    clearSelection: () => void;
 }
 
 interface CesiumMapProps {
@@ -204,7 +205,6 @@ function CesiumMap({
                                     complete: () => {
                                         // Only start tracking if ISS mode is still active
                                         if (issTrackingActiveRef.current) {
-                                            viewer.selectedEntity = issEntity; // Show green crosshair
                                             viewer.trackedEntity = issEntity;
                                             console.log('🛰️ ISS tracking started with orbit view distance');
                                             
@@ -222,7 +222,6 @@ function CesiumMap({
                             } else {
                                 // If position not available, just track immediately with offset
                                 if (issTrackingActiveRef.current) {
-                                    viewer.selectedEntity = issEntity; // Show green crosshair
                                     viewer.trackedEntity = issEntity;
                                     console.log('🛰️ ISS tracking started');
                                     
@@ -250,15 +249,17 @@ function CesiumMap({
                             rotationIntervalRef.current = null;
                         }
                         
-                        // Clear selection (green crosshair)
-                        if (viewer.selectedEntity) {
-                            viewer.selectedEntity = undefined;
-                        }
-                        
                         // Clear tracked entity
                         if (viewer.trackedEntity) {
                             viewer.trackedEntity = undefined;
                             console.log('⏹️ ISS tracking stopped');
+                        }
+                    },
+                    clearSelection: () => {
+                        // Clear selection (green crosshair)
+                        if (viewer.selectedEntity) {
+                            viewer.selectedEntity = undefined;
+                            console.log('🚫 Selection cleared');
                         }
                     }
                 });

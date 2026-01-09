@@ -45,8 +45,10 @@ interface MapController {
     startRotation: () => void;
     stopRotation: () => void;
     resetCamera: () => void;
+    adjustAltitudeForRotation: () => void;
     startISSTracking: () => void;
     stopISSTracking: () => void;
+    clearSelection: () => void;
 }
 
 interface EventData {
@@ -542,6 +544,11 @@ function App() {
             if (mapController) {
                 mapController.stopRotation();
                 mapController.stopISSTracking();
+                
+                // Clear selection when exiting wander mode
+                if (autopilotMode === 'wander') {
+                    mapController.clearSelection();
+                }
             }
             if (wanderInterval !== null) {
                 console.log('🧹 Clearing wander interval');
