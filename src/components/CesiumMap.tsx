@@ -2,15 +2,15 @@ import { useEffect, useRef, MutableRefObject } from 'react';
 import { 
     Viewer, 
     Cartesian3, 
-    Ion, 
-    OpenStreetMapImageryProvider,
-    Color
+    Ion,
+    Color,
+    UrlTemplateImageryProvider
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { CesiumMarkerManager, AddEventCallback } from '../utils/CesiumMarkerManager';
 import { DataPoint } from '../models/DataPoint';
 
-// Disable Cesium Ion (we'll use OpenStreetMap)
+// Disable Cesium Ion - we'll use free imagery that doesn't require authentication
 Ion.defaultAccessToken = '';
 
 interface MapController {
@@ -39,60 +39,76 @@ function CesiumMap({
     useEffect(() => {
         if (!containerRef.current || viewerRef.current) return;
 
-        try {
-            const viewer = new Viewer(containerRef.current, {
-                animation: false,
-                timeline: false,
-                homeButton: false,
-                geocoder: false,
-                sceneModePicker: false,
-                navigationHelpButton: false,
-                baseLayerPicker: false,
-                fullscreenButton: false,
-                vrButton: false,
-                infoBox: true,
-                selectionIndicator: true,
-                shouldAnimate: false,
-                imageryProvider: new OpenStreetMapImageryProvider({
-                    url: 'https://tile.openstreetmap.org/'
-                })
-            });
+        const initViewer = async () => {
+            try {
+                // Create viewer without default imagery first
+                const viewer = new Viewer(containerRef.current!, {
+                    animation: false,
+                    timeline: false,
+                    homeButton: false,
+                    geocoder: false,
+                    sceneModePicker: false,
+                    navigationHelpButton: false,
+                    baseLayerPicker: false,
+                    fullscreenButton: false,
+                    vrButton: false,
+                    infoBox: true,
+                    selectionIndicator: true,
+                    shouldAnimate: false
+                });
 
-            // Set darker space background
-            viewer.scene.backgroundColor = Color.BLACK;
+                // Remove default imagery layers
+                viewer.imageryLayers.removeAll();
 
-            viewerRef.current = viewer;
+                // Add OpenStreetMap imagery (free, no authentication, proper CORS)
+                const imageryProvider = new UrlTemplateImageryProvider({
+                    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    credit: '© OpenStreetMap contributors'
+                });
+                viewer.imageryLayers.addImageryProvider(imageryProvider);
 
-            // Initialize marker manager
-            markerManagerRef.current = new CesiumMarkerManager(
-                viewer,
-                addEvent,
-                severityThreshold
-            );
-            console.log('✅ Cesium Viewer and MarkerManager initialized');
+                // Keep the nice starry background
+                viewer.scene.backgroundColor = Color.BLACK;
+                
+                // Disable lighting for consistent view
+                viewer.scene.globe.enableLighting = false;
 
-            // Setup map controller
-            setMapController({
-                zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => {
-                    viewer.camera.flyTo({
-                        destination: Cartesian3.fromDegrees(lon, lat, 5000000),
-                        duration: 2.5,
-                        easingFunction: (t: number) => {
-                            return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                viewerRef.current = viewer;
+                console.log('✅ Cesium Viewer created with Natural Earth II imagery');
+
+                // Initialize marker manager
+                markerManagerRef.current = new CesiumMarkerManager(
+                    viewer,
+                    addEvent,
+                    severityThreshold
+                );
+                console.log('✅ CesiumMarkerManager initialized');
+
+                // Setup map controller
+                setMapController({
+                    zoomTo: (lat: number, lon: number, data?: { markerId?: string }) => {
+                        viewer.camera.flyTo({
+                            destination: Cartesian3.fromDegrees(lon, lat, 5000000),
+                            duration: 2.5,
+                            easingFunction: (t: number) => {
+                                return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                            }
+                        });
+                        
+                        if (data?.markerId && markerManagerRef.current) {
+                            setTimeout(() => {
+                                markerManagerRef.current?.openInfoBoxForEntity(data.markerId!);
+                            }, 2500);
                         }
-                    });
-                    
-                    if (data?.markerId && markerManagerRef.current) {
-                        setTimeout(() => {
-                            markerManagerRef.current?.openInfoBoxForEntity(data.markerId!);
-                        }, 2500);
                     }
-                }
-            });
+                });
 
-        } catch (error) {
-            console.error('Error initializing Cesium:', error);
-        }
+            } catch (error) {
+                console.error('Error initializing Cesium:', error);
+            }
+        };
+
+        initViewer();
 
         // Cleanup on unmount
         return () => {
