@@ -193,8 +193,8 @@ export class CesiumMarkerManager {
         const colorHex = getMagnitudeColor(mag);
         const color = Color.fromCssColorString(colorHex);
         
-        // Convert pixel radius to meters (approximate: 1 pixel radius ≈ 50km on globe)
-        const radiusMeters = radius * 50000;
+        // Convert pixel radius to meters (reduced for better visibility)
+        const radiusMeters = radius * 8000;
         
         // Create the main ellipse entity
         const entity = new Entity({
@@ -222,7 +222,7 @@ export class CesiumMarkerManager {
         const timeText = this.formatTimeAgo(age);
         
         // Calculate offset for time label (to the right of the circle)
-        const offsetMeters = radiusMeters + 200000; // Add 200km offset from edge
+        const offsetMeters = radiusMeters + 50000; // Add 50km offset from edge
         
         const timeLabel = new Entity({
             id: `${dataPoint.id}-time-label`,
@@ -232,15 +232,15 @@ export class CesiumMarkerManager {
             ),
             label: {
                 text: timeText,
-                font: '10pt sans-serif',
+                font: '8pt sans-serif',
                 fillColor: color,
                 backgroundColor: Color.BLACK.withAlpha(0.7),
-                backgroundPadding: new Cartesian3(4, 2, 0),
+                backgroundPadding: new Cartesian3(3, 1, 0),
                 style: 0, // FILL
                 pixelOffset: new Cartesian3(0, 0, 0),
                 showBackground: true,
                 outlineColor: color,
-                outlineWidth: 1,
+                outlineWidth: 0.5,
                 disableDepthTestDistance: Number.POSITIVE_INFINITY // Always visible
             }
         });
@@ -263,7 +263,7 @@ export class CesiumMarkerManager {
 
         // Use a triangle polygon to represent volcano
         // Create triangle vertices around the volcano position
-        const sizeMeters = size * 50000; // Convert pixel size to meters
+        const sizeMeters = size * 8000; // Convert pixel size to meters (reduced for better visibility)
         const degreeOffset = sizeMeters / 111320; // Approximate degree offset
 
         const entity = new Entity({
@@ -307,15 +307,15 @@ export class CesiumMarkerManager {
             id: dataPoint.id,
             position: Cartesian3.fromDegrees(dataPoint.lon, dataPoint.lat, 0),
             point: {
-                pixelSize: size * 2,
+                pixelSize: size * 0.5,
                 color: color.withAlpha(0.9),
                 outlineColor: Color.WHITE,
-                outlineWidth: 2,
+                outlineWidth: 1,
                 disableDepthTestDistance: Number.POSITIVE_INFINITY
             },
             label: {
                 text: dataPoint.emoji,
-                font: `${size * 2}pt sans-serif`,
+                font: `${size * 0.5}pt sans-serif`,
                 fillColor: color,
                 style: 0, // FILL
                 pixelOffset: new Cartesian2(0, 0),
@@ -343,15 +343,15 @@ export class CesiumMarkerManager {
             id: dataPoint.id,
             position: Cartesian3.fromDegrees(dataPoint.lon, dataPoint.lat, (metadata.altitude || 400) * 1000), // Altitude in meters
             point: {
-                pixelSize: 15,
+                pixelSize: 8,
                 color: Color.CYAN,
                 outlineColor: Color.WHITE,
-                outlineWidth: 2,
+                outlineWidth: 1,
                 disableDepthTestDistance: Number.POSITIVE_INFINITY
             },
             label: {
                 text: dataPoint.emoji,
-                font: '24pt sans-serif',
+                font: '16pt sans-serif',
                 fillColor: Color.CYAN,
                 style: 0, // FILL
                 pixelOffset: new Cartesian2(0, 0),
