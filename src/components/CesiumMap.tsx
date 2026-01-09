@@ -183,24 +183,28 @@ function CesiumMap({
                         const issEntity = markerManagerRef.current?.getISSEntity();
                         
                         if (issEntity) {
-                            // Zoom to ISS with medium distance before tracking
+                            // Set viewing distance offset - this controls how far the camera is from the ISS when tracking
+                            // Using a larger offset so we can see the orbit
+                            issEntity.viewFrom = new Cartesian3(0, -15000000, 10000000); // Back 15Mm, up 10Mm
+                            
+                            // Fly to ISS position first for smooth animation
                             const issPosition = issEntity.position?.getValue(viewer.clock.currentTime);
                             if (issPosition) {
                                 viewer.camera.flyTo({
                                     destination: Cartesian3.fromElements(
-                                        issPosition.x * 1.8,  // Pull back for medium view
-                                        issPosition.y * 1.8,
-                                        issPosition.z * 1.8
+                                        issPosition.x * 3.0,  // Pull back farther to see orbit
+                                        issPosition.y * 3.0,
+                                        issPosition.z * 3.0
                                     ),
                                     duration: 2.0,
                                     complete: () => {
-                                        // After zoom completes, start tracking
+                                        // After animation completes, start tracking with viewFrom offset
                                         viewer.trackedEntity = issEntity;
-                                        console.log('🛰️ ISS tracking started with medium distance');
+                                        console.log('🛰️ ISS tracking started with orbit view distance');
                                     }
                                 });
                             } else {
-                                // If position not available, just track immediately
+                                // If position not available, just track immediately with offset
                                 viewer.trackedEntity = issEntity;
                                 console.log('🛰️ ISS tracking started');
                             }
