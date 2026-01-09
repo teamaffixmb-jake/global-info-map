@@ -29,7 +29,9 @@ interface EntityEntry {
     entity: Entity;
     dataPoint: DataPoint;
     timeLabel?: Entity; // Optional time label for earthquakes
-    orbitPath?: Entity; // Optional orbit visualization for ISS
+    orbitPathA?: Entity; // Optional orbit visualization for ISS (buffer A)
+    orbitPathB?: Entity; // Optional orbit visualization for ISS (buffer B)
+    currentOrbit?: 'A' | 'B'; // Track which orbit buffer was created most recently
 }
 
 export class CesiumMarkerManager {
@@ -210,19 +212,19 @@ export class CesiumMarkerManager {
         // Add time label if it exists (for earthquakes)
         const timeLabel = (entity as any)._timeLabel;
         
-        // Add orbit path if it exists (for ISS)
+        // Add orbit path if it exists (for ISS) - start with orbitA
         const orbitPath = (entity as any)._orbitPath;
         
         if (timeLabel && orbitPath) {
             this.viewer.entities.add(timeLabel);
             this.viewer.entities.add(orbitPath);
-            this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPath });
+            this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPathA: orbitPath, currentOrbit: 'A' });
         } else if (timeLabel) {
             this.viewer.entities.add(timeLabel);
             this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel });
         } else if (orbitPath) {
             this.viewer.entities.add(orbitPath);
-            this.entities.set(dataPoint.id, { entity, dataPoint, orbitPath });
+            this.entities.set(dataPoint.id, { entity, dataPoint, orbitPathA: orbitPath, currentOrbit: 'A' });
         } else {
             this.entities.set(dataPoint.id, { entity, dataPoint });
         }
@@ -259,43 +261,61 @@ export class CesiumMarkerManager {
                 Velocity: ${metadata.velocity} km/h
             `);
             
-            // Update orbit path if it exists
-            if (existing.orbitPath) {
-                // Regenerate orbit positions with new latitude
-                const positions: Cartesian3[] = [];
-                const segments = 360;
+            // Update orbit path using double-buffering to prevent flicker
+            if (existing.orbitPathA || existing.orbitPathB) {
+                // Determine which buffer to update (alternate between A and B)
+                const updateBuffer = existing.currentOrbit === 'A' ? 'B' : 'A';
                 
-                for (let i = 0; i <= segments; i++) {
-                    const longitude = (i / segments) * 360 - 180;
-                    const position = Cartesian3.fromDegrees(longitude, dataPoint.lat, altitude);
-                    positions.push(position);
+                // FIRST: Remove the old buffer that we're replacing
+                if (updateBuffer === 'A' && existing.orbitPathA) {
+                    this.viewer.entities.remove(existing.orbitPathA);
+                } else if (updateBuffer === 'B' && existing.orbitPathB) {
+                    this.viewer.entities.remove(existing.orbitPathB);
                 }
                 
-                // Update the polyline positions
-                if (existing.orbitPath.polyline) {
-                    existing.orbitPath.polyline.positions = new ConstantProperty(positions);
+                // THEN: Create and add new orbit in the update buffer
+                const newOrbit = this.createISSOrbitPath(dataPoint.lat, altitude, updateBuffer);
+                this.viewer.entities.add(newOrbit);
+                
+                // Update entity entry with new orbit
+                const updatedEntry: EntityEntry = {
+                    entity: existing.entity,
+                    dataPoint,
+                    currentOrbit: updateBuffer
+                };
+                
+                if (updateBuffer === 'A') {
+                    updatedEntry.orbitPathA = newOrbit;
+                    updatedEntry.orbitPathB = existing.orbitPathB; // Keep the other buffer
+                } else {
+                    updatedEntry.orbitPathA = existing.orbitPathA; // Keep the other buffer
+                    updatedEntry.orbitPathB = newOrbit;
                 }
+                
+                this.entities.set(dataPoint.id, updatedEntry);
+            } else {
+                // No orbit exists yet (shouldn't happen), just update the dataPoint
+                this.entities.set(dataPoint.id, { 
+                    entity: existing.entity, 
+                    dataPoint
+                });
             }
-            
-            // Update the dataPoint reference (keep orbit path)
-            this.entities.set(dataPoint.id, { 
-                entity: existing.entity, 
-                dataPoint,
-                orbitPath: existing.orbitPath 
-            });
             
             // Don't log ISS updates (too frequent)
             return;
         }
         
         // For all other entity types: recreate (original behavior)
-        // Remove old entity, time label, and orbit path
+        // Remove old entity, time label, and orbit paths
         this.viewer.entities.remove(existing.entity);
         if (existing.timeLabel) {
             this.viewer.entities.remove(existing.timeLabel);
         }
-        if (existing.orbitPath) {
-            this.viewer.entities.remove(existing.orbitPath);
+        if (existing.orbitPathA) {
+            this.viewer.entities.remove(existing.orbitPathA);
+        }
+        if (existing.orbitPathB) {
+            this.viewer.entities.remove(existing.orbitPathB);
         }
 
         // Create and add new entity
@@ -304,20 +324,20 @@ export class CesiumMarkerManager {
 
         this.viewer.entities.add(entity);
 
-        // Add time label if it exists
+        // Add time label and/or orbit path if they exist
         const timeLabel = (entity as any)._timeLabel;
         const orbitPath = (entity as any)._orbitPath;
         
         if (timeLabel && orbitPath) {
             this.viewer.entities.add(timeLabel);
             this.viewer.entities.add(orbitPath);
-            this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPath });
+            this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPathA: orbitPath, currentOrbit: 'A' });
         } else if (timeLabel) {
             this.viewer.entities.add(timeLabel);
             this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel });
         } else if (orbitPath) {
             this.viewer.entities.add(orbitPath);
-            this.entities.set(dataPoint.id, { entity, dataPoint, orbitPath });
+            this.entities.set(dataPoint.id, { entity, dataPoint, orbitPathA: orbitPath, currentOrbit: 'A' });
         } else {
             this.entities.set(dataPoint.id, { entity, dataPoint });
         }
@@ -337,9 +357,12 @@ export class CesiumMarkerManager {
                 this.viewer.entities.remove(existing.timeLabel);
             }
             
-            // Remove orbit path if it exists
-            if (existing.orbitPath) {
-                this.viewer.entities.remove(existing.orbitPath);
+            // Remove both orbit paths if they exist
+            if (existing.orbitPathA) {
+                this.viewer.entities.remove(existing.orbitPathA);
+            }
+            if (existing.orbitPathB) {
+                this.viewer.entities.remove(existing.orbitPathB);
             }
 
             this.viewer.entities.remove(existing.entity);
@@ -561,7 +584,7 @@ export class CesiumMarkerManager {
     /**
      * Create a circular orbit path at ISS altitude
      */
-    private createISSOrbitPath(currentLat: number, altitude: number): Entity {
+    private createISSOrbitPath(currentLat: number, altitude: number, buffer?: 'A' | 'B'): Entity {
         // Create positions for a circular orbit
         // Approximate orbit as a circle at the current latitude
         const positions: Cartesian3[] = [];
@@ -575,7 +598,7 @@ export class CesiumMarkerManager {
         }
 
         const orbitEntity = new Entity({
-            id: 'iss-orbit',
+            id: buffer ? `iss-orbit-${buffer}` : 'iss-orbit',
             polyline: {
                 positions: positions,
                 width: 2,
