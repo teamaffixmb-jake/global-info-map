@@ -93,6 +93,10 @@ node --version
 
 Update if needed: https://nodejs.org/
 
+### "Unsupported engine" warnings
+
+These are just warnings from Cesium preferring Node v20+, but the app works fine on Node v18. You can safely ignore them.
+
 ## Features to Try
 
 - 🌍 **Rotate the globe** - Click and drag
