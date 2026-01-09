@@ -7,13 +7,14 @@ A real-time global data visualization application built with **React + TypeScrip
 - 🌍 **Interactive 3D Globe** - Powered by Cesium.js with smooth rotation, zoom, and tilt
 - 🌊 **Wind Flow Streamlines** - Flowing curves with directional arrows showing global atmospheric circulation
 - ⚡ **Real-Time Data** - Live earthquakes (USGS), volcanoes (USGS), hurricanes (NOAA), ISS position
+- 🛰️ **ISS Tracking** - Smooth 100Hz interpolation with dynamic orbit computation and double-buffered visualization
 - 🎯 **Smart Filtering** - Severity-based event filtering with minimizable UI
 - ⏱️ **Time Indicators** - At-a-glance earthquake recency labels
 - 📊 **Event Log** - Sortable event history with click-to-zoom
-- 🔄 **Auto-Refresh** - Updates every 60 seconds with progress indicators
+- 🔄 **Auto-Refresh** - Intelligent update intervals (ISS: 1s, Hurricanes: 30s, Earthquakes: 60s)
 - 🚦 **Rate Limit Handling** - Graceful API rate limit detection with retry logic
 - 🌙 **Dark Mode** - CartoDB Dark Matter tiles with starry night sky background
-- ✈️ **Autopilot Mode** - Screensaver with rotate mode (wander & ISS modes coming soon)
+- ✈️ **Autopilot Mode** - Screensaver with rotate, wander, and ISS tracking modes
 - 📏 **Camera Height Display** - Real-time altitude indicator for spatial orientation
 - 🎨 **Dynamic Marker Scaling** - Markers scale with zoom level to prevent overlap
 
@@ -45,6 +46,102 @@ Wind data from [Open-Meteo API](https://open-meteo.com/) with:
 - Wind direction (meteorological)
 - Wind gusts
 - Rate limit handling with 60s retry
+
+## 🛰️ ISS Tracking & Interpolation System
+
+The International Space Station is tracked in real-time with **smooth interpolation** and a **dynamic orbital path visualization**.
+
+### Two-Loop Architecture
+
+The system uses **separated concerns** with two independent loops:
+
+#### 1. Data Update Loop (1 Hz - every 1 second)
+**Purpose**: Fetch ISS data and compute orbital parameters
+
+**Operations**:
+- Fetches ISS position from API (lat, lon, altitude)
+- Computes velocity vector from position change
+- Calculates angular velocity: `ω = v / r`
+- Determines orbital plane from `position × velocity`
+- Updates orbit visualization with new trajectory
+- Stores interpolation parameters
+
+**Location**: `CesiumMarkerManager.updateISSData()`
+
+#### 2. Rendering Loop (100 Hz - every 10ms)
+**Purpose**: Smooth visual interpolation between API updates
+
+**Operations**:
+- Calculates elapsed time since last data update
+- Computes angular displacement: `θ = ω × Δt`
+- Rotates ISS position along orbital plane
+- Updates entity position for smooth motion
+- **Does NOT fetch data or compute orbit**
+
+**Location**: `CesiumMarkerManager.interpolateISSPosition()`
+
+### Orbital Path Computation
+
+The orbit is computed **dynamically from real-time velocity data**:
+
+1. **Velocity Vector**: `v = current_position - previous_position`
+2. **Radial Vector**: Direction from Earth center to ISS
+3. **Orbit Normal**: `n = radial × velocity` (perpendicular to orbital plane)
+4. **Circular Path**: Great circle at ISS altitude in the orbital plane
+5. **No Hard-Coding**: Inclination, orientation computed from actual motion
+
+### Double-Buffered Orbit Visualization
+
+To prevent visual flicker during orbit updates, the system uses **double-buffering**:
+
+**How It Works**:
+- Two orbit paths exist: `orbitPathA` and `orbitPathB`
+- Both are created on initialization
+- On each update, the **oldest orbit is modified in place**
+- Tracks which orbit was last updated with `currentOrbit: 'A' | 'B'`
+- While one orbit updates, the other remains visible
+
+**Benefits**:
+- ✅ No flicker - Always at least one orbit visible
+- ✅ No entity deletion/creation - Just property updates
+- ✅ Smooth transitions - Gradual orbit adjustments
+- ✅ Performance - Reuses existing entities
+
+**Implementation**: Alternates between updating orbitA and orbitB every second
+
+### ISS Motion Details
+
+**Velocity Calculation**:
+```typescript
+velocityMagnitude = |position₁ - position₀| // meters per second
+angularVelocity = velocityMagnitude / orbitalRadius // radians per second
+```
+
+**Interpolation**:
+```typescript
+angularDisplacement = angularVelocity × deltaTime
+rotatedPosition = rotate(basePosition, orbitNormal, angularDisplacement)
+```
+
+**Result**:
+- ISS updates from API: **1 Hz** (every second)
+- ISS visual updates: **100 Hz** (every 10ms)
+- Smooth motion along computed orbital trajectory
+- Realistic ~90 minute orbital period
+- ISS velocity: ~7,660 m/s (27,576 km/h)
+
+### State Management
+
+The interpolation state is stored between updates:
+```typescript
+{
+    basePosition: Cartesian3,        // Last known position
+    angularVelocity: number,         // radians/ms
+    orbitalPlaneNormal: Cartesian3,  // Perpendicular to orbit
+    orbitalRadius: number,           // Earth radius + altitude
+    lastUpdateTime: number           // Timestamp for Δt
+}
+```
 
 ## 🌐 3D Globe Features (v5.0.0)
 
@@ -84,7 +181,11 @@ Each data type is rendered as a Cesium entity:
 - **Earthquakes** - `EllipseGraphics` with magnitude-based sizing, color, and time labels
 - **Volcanoes** - `PolygonGraphics` with triangular shapes
 - **Hurricanes** - `PointGraphics` + `LabelGraphics` with category coloring
-- **ISS** - `PointGraphics` + `LabelGraphics` at orbital altitude with animated beacon circles
+- **ISS** - `PointGraphics` + `LabelGraphics` at ~400km altitude with:
+  - Smooth 100Hz interpolation between 1Hz API updates
+  - Dynamic orbital path computed from real-time velocity
+  - Double-buffered cyan orbit visualization (no flicker)
+  - Realistic motion along computed trajectory
 - **Wind Streamlines** - `PolylineGraphics` with arrow materials and speed-based coloring
 
 ### Camera Controls
@@ -840,11 +941,14 @@ The app runs at `http://localhost:5173/` (or 5174 if port is busy) with hot modu
 9. **Dark Mode** - CartoDB Dark Matter tiles with starry sky background
 10. **Camera Height Display** - Real-time altitude indicator
 11. **Dynamic Marker Scaling** - Zoom-aware marker sizing to prevent overlap
-12. **Autopilot Mode (Rotate)** - Automated globe rotation for screensaver mode
+12. **Autopilot Rotate Mode** - Automated globe rotation for screensaver mode
+13. **Autopilot Wander Mode** - Probabilistic event exploration based on severity
+14. **Autopilot ISS Mode** - Real-time ISS tracking with camera following
+15. **ISS Smooth Interpolation** - 100Hz rendering with velocity-based orbit computation
+16. **Double-Buffered Orbit Visualization** - Flicker-free dynamic orbital path updates
+17. **Staggered Data Update Intervals** - Optimized refresh rates per data source
 
 ### Potential Future Work 🚀
-1. **Autopilot Wander Mode** - Probabilistic event exploration based on severity
-2. **Autopilot ISS Mode** - Real-time ISS tracking with beacon effects
 3. **WebSocket Updates** - Real-time data streaming instead of polling
 4. **Historical Data** - Track and visualize event history over time
 5. **Storm Tracking** - Show hurricane/tornado paths with historical positions
@@ -971,7 +1075,7 @@ This project is open source and available for educational and demonstration purp
 ---
 
 **Last Updated**: January 2026  
-**Version**: 5.0.0 (3D Globe with Cesium.js)  
+**Version**: 5.1.0 (ISS Tracking & Interpolation)  
 **Status**: Production Ready  
-**Recent Changes**: Dark mode, autopilot rotate mode, dynamic marker scaling, camera height indicator  
-**Milestone**: Complete migration from 2D Leaflet to 3D Cesium globe visualization!
+**Recent Changes**: ISS smooth interpolation (100Hz), dynamic orbit computation, double-buffered visualization, autopilot wander & ISS modes, staggered data updates  
+**Milestone**: Advanced ISS tracking with real-time orbit computation and flicker-free visualization!
