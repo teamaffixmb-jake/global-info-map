@@ -212,19 +212,37 @@ export class CesiumMarkerManager {
         // Add time label if it exists (for earthquakes)
         const timeLabel = (entity as any)._timeLabel;
         
-        // Add orbit path if it exists (for ISS) - start with orbitA
-        const orbitPath = (entity as any)._orbitPath;
+        // Add orbit path if it exists (for ISS) - create BOTH orbitA and orbitB for double-buffering
+        const orbitPathA = (entity as any)._orbitPath;
         
-        if (timeLabel && orbitPath) {
+        if (timeLabel && orbitPathA) {
             this.viewer.entities.add(timeLabel);
-            this.viewer.entities.add(orbitPath);
-            this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPathA: orbitPath, currentOrbit: 'A' });
+            this.viewer.entities.add(orbitPathA);
+            
+            // Create orbitB as a duplicate for double-buffering
+            if (dataPoint.type === DataSourceType.ISS) {
+                const metadata = dataPoint.metadata as any;
+                const orbitPathB = this.createISSOrbitPath(dataPoint.lat, (metadata.altitude || 400) * 1000, 'B');
+                this.viewer.entities.add(orbitPathB);
+                this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPathA, orbitPathB, currentOrbit: 'A' });
+            } else {
+                this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPathA, currentOrbit: 'A' });
+            }
         } else if (timeLabel) {
             this.viewer.entities.add(timeLabel);
             this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel });
-        } else if (orbitPath) {
-            this.viewer.entities.add(orbitPath);
-            this.entities.set(dataPoint.id, { entity, dataPoint, orbitPathA: orbitPath, currentOrbit: 'A' });
+        } else if (orbitPathA) {
+            this.viewer.entities.add(orbitPathA);
+            
+            // Create orbitB as a duplicate for double-buffering
+            if (dataPoint.type === DataSourceType.ISS) {
+                const metadata = dataPoint.metadata as any;
+                const orbitPathB = this.createISSOrbitPath(dataPoint.lat, (metadata.altitude || 400) * 1000, 'B');
+                this.viewer.entities.add(orbitPathB);
+                this.entities.set(dataPoint.id, { entity, dataPoint, orbitPathA, orbitPathB, currentOrbit: 'A' });
+            } else {
+                this.entities.set(dataPoint.id, { entity, dataPoint, orbitPathA, currentOrbit: 'A' });
+            }
         } else {
             this.entities.set(dataPoint.id, { entity, dataPoint });
         }
@@ -262,37 +280,35 @@ export class CesiumMarkerManager {
             `);
             
             // Update orbit path using double-buffering to prevent flicker
+            // Modify the OLDEST orbit in place rather than deleting/creating
             if (existing.orbitPathA || existing.orbitPathB) {
-                // Determine which buffer to update (alternate between A and B)
-                const updateBuffer = existing.currentOrbit === 'A' ? 'B' : 'A';
+                // Determine which orbit to update (the one that wasn't just modified)
+                const orbitToUpdate = existing.currentOrbit === 'A' ? 'B' : 'A';
+                const orbitEntity = orbitToUpdate === 'A' ? existing.orbitPathA : existing.orbitPathB;
                 
-                // FIRST: Remove the old buffer that we're replacing
-                if (updateBuffer === 'A' && existing.orbitPathA) {
-                    this.viewer.entities.remove(existing.orbitPathA);
-                } else if (updateBuffer === 'B' && existing.orbitPathB) {
-                    this.viewer.entities.remove(existing.orbitPathB);
+                if (orbitEntity && orbitEntity.polyline) {
+                    // Regenerate orbit positions with new latitude
+                    const positions: Cartesian3[] = [];
+                    const segments = 360;
+                    
+                    for (let i = 0; i <= segments; i++) {
+                        const longitude = (i / segments) * 360 - 180;
+                        const position = Cartesian3.fromDegrees(longitude, dataPoint.lat, altitude);
+                        positions.push(position);
+                    }
+                    
+                    // Update positions in place - set the property value directly
+                    orbitEntity.polyline.positions = new ConstantProperty(positions);
                 }
                 
-                // THEN: Create and add new orbit in the update buffer
-                const newOrbit = this.createISSOrbitPath(dataPoint.lat, altitude, updateBuffer);
-                this.viewer.entities.add(newOrbit);
-                
-                // Update entity entry with new orbit
-                const updatedEntry: EntityEntry = {
+                // Update entity entry - mark this orbit as the most recently modified
+                this.entities.set(dataPoint.id, {
                     entity: existing.entity,
                     dataPoint,
-                    currentOrbit: updateBuffer
-                };
-                
-                if (updateBuffer === 'A') {
-                    updatedEntry.orbitPathA = newOrbit;
-                    updatedEntry.orbitPathB = existing.orbitPathB; // Keep the other buffer
-                } else {
-                    updatedEntry.orbitPathA = existing.orbitPathA; // Keep the other buffer
-                    updatedEntry.orbitPathB = newOrbit;
-                }
-                
-                this.entities.set(dataPoint.id, updatedEntry);
+                    orbitPathA: existing.orbitPathA,
+                    orbitPathB: existing.orbitPathB,
+                    currentOrbit: orbitToUpdate
+                });
             } else {
                 // No orbit exists yet (shouldn't happen), just update the dataPoint
                 this.entities.set(dataPoint.id, { 
