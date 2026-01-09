@@ -74,6 +74,8 @@ function App() {
     const [dataPoints, setDataPoints] = useState<DataPoint[]>([]);
     const [showSimulatedData, setShowSimulatedData] = useState<boolean>(false); // Toggle for sample data
     const [loadingStatus, setLoadingStatus] = useState<string>(''); // Current loading/rendering status
+    const [volcanoLoading, setVolcanoLoading] = useState<boolean>(false); // Volcano fetch status
+    const [earthquakeLoading, setEarthquakeLoading] = useState<boolean>(false); // Earthquake fetch status
     const [windRateLimited, setWindRateLimited] = useState<boolean>(false); // Wind API rate limit warning
     const [cameraHeight, setCameraHeight] = useState<number>(0); // Camera altitude in meters
     const [autopilotEnabled, setAutopilotEnabled] = useState<boolean>(false); // Autopilot/screensaver mode
@@ -271,6 +273,7 @@ function App() {
 
     const updateEarthquakeData = useCallback(async () => {
         try {
+            setEarthquakeLoading(true);
             const eqResult = await fetchEarthquakes();
             const newEarthquakes = convertBatch(eqResult.data, earthquakeToDataPoint);
             
@@ -289,11 +292,14 @@ function App() {
             console.log(`🌍 Earthquake data updated (${newEarthquakes.length} events)`);
         } catch (error) {
             console.error('Error updating earthquake data:', error);
+        } finally {
+            setEarthquakeLoading(false);
         }
     }, []);
 
     const updateVolcanoData = useCallback(async () => {
         try {
+            setVolcanoLoading(true);
             const volcanicResult = await fetchVolcanic();
             const newVolcanoes = convertBatch(volcanicResult.data, volcanoToDataPoint);
             
@@ -312,6 +318,8 @@ function App() {
             console.log(`🌋 Volcano data updated (${newVolcanoes.length} events)`);
         } catch (error) {
             console.error('Error updating volcano data:', error);
+        } finally {
+            setVolcanoLoading(false);
         }
     }, []);
 
@@ -414,10 +422,10 @@ function App() {
     }, [updateEarthquakeData]);
 
     useEffect(() => {
-        // Volcanoes: Every 120 seconds (slow-changing)
+        // Volcanoes: Every 10 seconds (TESTING - verify severity change logging)
         const volcanoInterval = setInterval(() => {
             updateVolcanoData();
-        }, 120000);
+        }, 10000);
 
         return () => clearInterval(volcanoInterval);
     }, [updateVolcanoData]);
@@ -720,12 +728,24 @@ function App() {
                         </div>
                     )}
                     
-                    {/* Loading Status Indicator */}
-                    {loadingStatus && (
-                        <div className="loading-status">
-                            {loadingStatus}
-                        </div>
-                    )}
+                    {/* Loading Status Indicators */}
+                    <div className="loading-status-container">
+                        {earthquakeLoading && (
+                            <div className="loading-status">
+                                🌍 Fetching earthquake data...
+                            </div>
+                        )}
+                        {volcanoLoading && (
+                            <div className="loading-status">
+                                🌋 Fetching volcano data...
+                            </div>
+                        )}
+                        {loadingStatus && (
+                            <div className="loading-status">
+                                {loadingStatus}
+                            </div>
+                        )}
+                    </div>
                     
                     {/* Wind Rate Limit Warning */}
                     {windRateLimited && (

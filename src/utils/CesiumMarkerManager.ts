@@ -41,6 +41,7 @@ export class CesiumMarkerManager {
     private severityThreshold: number;
     private entities: Map<string, EntityEntry>;
     private loggedEventIds: Set<string>;
+    private loggedEventSeverities: Map<string, number>; // Track severity to detect changes
     private streamlineEntities: Entity[];
     private cameraScaleFactor: number = 1.0;
     
@@ -66,6 +67,7 @@ export class CesiumMarkerManager {
         this.severityThreshold = severityThreshold;
         this.entities = new Map();
         this.loggedEventIds = new Set();
+        this.loggedEventSeverities = new Map(); // Track severity for each logged event
         this.streamlineEntities = [];
         
         // Listen to camera changes to update marker sizes
@@ -410,6 +412,7 @@ export class CesiumMarkerManager {
         if (!this.loggedEventIds.has(dataPoint.id)) {
             this.logEvent(dataPoint);
             this.loggedEventIds.add(dataPoint.id);
+            this.loggedEventSeverities.set(dataPoint.id, dataPoint.severity);
         }
     }
 
@@ -461,8 +464,15 @@ export class CesiumMarkerManager {
             this.entities.set(dataPoint.id, { entity, dataPoint });
         }
 
-        // Log update to event log
-        this.logEvent(dataPoint);
+        // Only log update to event log if severity has changed
+        const previousSeverity = this.loggedEventSeverities.get(dataPoint.id);
+        if (previousSeverity === undefined || previousSeverity !== dataPoint.severity) {
+            this.logEvent(dataPoint);
+            this.loggedEventSeverities.set(dataPoint.id, dataPoint.severity);
+            if (!this.loggedEventIds.has(dataPoint.id)) {
+                this.loggedEventIds.add(dataPoint.id);
+            }
+        }
     }
 
     /**
@@ -830,6 +840,7 @@ export class CesiumMarkerManager {
         });
         this.entities.clear();
         this.loggedEventIds.clear();
+        this.loggedEventSeverities.clear();
 
         // Clear streamlines
         this.streamlineEntities.forEach(entity => {
