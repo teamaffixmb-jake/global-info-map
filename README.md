@@ -12,7 +12,10 @@ A real-time global data visualization application built with **React + TypeScrip
 - 📊 **Event Log** - Sortable event history with click-to-zoom
 - 🔄 **Auto-Refresh** - Updates every 60 seconds with progress indicators
 - 🚦 **Rate Limit Handling** - Graceful API rate limit detection with retry logic
-- 🎨 **Dark Theme** - Modern, unobtrusive UI design
+- 🌙 **Dark Mode** - CartoDB Dark Matter tiles with starry night sky background
+- ✈️ **Autopilot Mode** - Screensaver with rotate mode (wander & ISS modes coming soon)
+- 📏 **Camera Height Display** - Real-time altitude indicator for spatial orientation
+- 🎨 **Dynamic Marker Scaling** - Markers scale with zoom level to prevent overlap
 
 ## 🌬️ Wind Streamline Visualization
 
@@ -78,11 +81,11 @@ L.marker([lat, lon])
 
 Each data type is rendered as a Cesium entity:
 
-- **Earthquakes** - `EllipseGraphics` with magnitude-based sizing and color
+- **Earthquakes** - `EllipseGraphics` with magnitude-based sizing, color, and time labels
 - **Volcanoes** - `PolygonGraphics` with triangular shapes
 - **Hurricanes** - `PointGraphics` + `LabelGraphics` with category coloring
-- **ISS** - `PointGraphics` + `LabelGraphics` at orbital altitude
-- **Wind Streamlines** - `PolylineGraphics` with arrow materials
+- **ISS** - `PointGraphics` + `LabelGraphics` at orbital altitude with animated beacon circles
+- **Wind Streamlines** - `PolylineGraphics` with arrow materials and speed-based coloring
 
 ### Camera Controls
 
@@ -90,6 +93,101 @@ Each data type is rendered as a Cesium entity:
 - **Right Click + Drag** - Pan camera
 - **Scroll Wheel** - Zoom in/out
 - **Middle Click + Drag** - Tilt camera angle
+
+### Dark Mode 🌙
+
+The globe now features a **dark-themed base layer** using CartoDB Dark Matter tiles for:
+- Reduced eye strain during extended viewing
+- Better contrast for event markers
+- Professional aesthetic
+- Starry night sky background
+
+The dark theme is applied by default through Cesium's imagery provider configuration:
+
+```typescript
+viewer.imageryLayers.addImageryProvider(
+    new UrlTemplateImageryProvider({
+        url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png',
+        // ...
+    })
+);
+```
+
+### Camera Height Indicator 📏
+
+A real-time **camera height display** is shown in the top-left corner, indicating the distance from the Earth's surface in kilometers or meters:
+- Above 1000m: Shows in kilometers (e.g., "Camera: 7,234 km")
+- Below 1000m: Shows in meters (e.g., "Camera: 847 m")
+- Updates dynamically as you zoom in/out
+- Helps with spatial orientation on the 3D globe
+
+### Dynamic Marker Scaling 🎯
+
+Markers automatically scale with camera height to maintain consistent visual size and prevent overlap:
+- **Zoomed Out**: Markers appear appropriately sized for global view
+- **Zooming In**: Markers progressively shrink to resolve overlapping events
+- **Linear Scaling**: Below 7M meters, size scales linearly with camera height
+- **Capped Maximum**: Above 7M meters, size is capped to prevent excessive growth
+
+This allows you to:
+- View global patterns when zoomed out
+- Resolve individual events that occurred at nearly identical locations
+- Always keep markers within screen bounds
+
+Technical implementation:
+```typescript
+const baseScale = cameraHeight / 7_000_000; // Reference height: 7M meters
+const scale = Math.max(0.3, Math.min(baseScale, 1.0));
+marker.setRadius(baseSize * scale);
+```
+
+### Autopilot Mode ✈️
+
+**Autopilot** is a screensaver-like feature that automates camera movement for hands-free viewing. Toggle it on/off with the checkbox in the top-left corner.
+
+#### Implemented Modes ✅
+
+1. **🔄 Rotate Mode** (Active)
+   - Slow, continuous globe rotation
+   - Smooth right-to-left motion
+   - Maintains current zoom level
+   - Can be interrupted by manual camera control
+
+#### Planned Modes 🚧
+
+2. **🎲 Wander Mode** (Not Yet Implemented)
+   - Bounces between events based on severity/importance
+   - Probabilistic selection favoring high-severity events
+   - Avoids repeating recently visited events
+   - Zooms in to show event details
+   - Switches back to rotate mode after several events
+
+3. **🛰️ ISS Mode** (Not Yet Implemented)
+   - Tracks the International Space Station in real-time
+   - Automatically selects and follows the ISS
+   - Shows ISS beacon effect (yellow pulsing circles)
+   - Maintains optimal viewing distance
+   - Updates as ISS moves along its orbit
+
+#### Technical Implementation
+
+```typescript
+// Autopilot state management
+const [autopilotEnabled, setAutopilotEnabled] = useState(false);
+const [autopilotMode, setAutopilotMode] = useState<'rotate' | 'wander' | 'iss'>('rotate');
+
+// Mode switcher cycles through submodes
+useEffect(() => {
+    if (!autopilotEnabled) return;
+    
+    if (autopilotMode === 'rotate') {
+        mapController?.startRotation();
+    }
+    // Future: wander, ISS modes
+}, [autopilotEnabled, autopilotMode]);
+```
+
+The autopilot system is designed to be extensible, with additional modes planned for future releases.
 
 ## 🏗️ Architecture Overview
 
@@ -592,8 +690,8 @@ interface EventLogProps {
 - **Earthquakes**: Circle markers with time labels, size by magnitude, color by magnitude
 - **Volcanoes**: Triangle markers, color by alert level (red/orange/yellow/gray)
 - **Hurricanes**: Spinning cyclone emoji, size by category, color-coded
-- **ISS**: Animated rotating satellite icon
-- **Wind Streamlines**: Flowing polylines with directional arrows
+- **ISS**: Animated rotating satellite icon with yellow pulsing beacon circles
+- **Wind Streamlines**: Flowing polylines with directional arrows, green-to-purple gradient
 
 ### Animations
 - **Bounce**: New events bounce to draw attention
@@ -738,23 +836,31 @@ The app runs at `http://localhost:5173/` (or 5174 if port is busy) with hot modu
 5. **Time Indicators** - Earthquake recency labels
 6. **Simulated Data Toggle** - User control over sample data
 7. **Event Log Clearing** - Clear button for event history
+8. **3D Globe Conversion** - Complete! Migrated to Cesium.js (v5.0.0)
+9. **Dark Mode** - CartoDB Dark Matter tiles with starry sky background
+10. **Camera Height Display** - Real-time altitude indicator
+11. **Dynamic Marker Scaling** - Zoom-aware marker sizing to prevent overlap
+12. **Autopilot Mode (Rotate)** - Automated globe rotation for screensaver mode
 
 ### Potential Future Work 🚀
-1. ✅ **3D Globe Conversion** - Complete! Migrated to Cesium.js (v5.0.0)
-2. **WebSocket Updates** - Real-time data streaming instead of polling
-3. **Historical Data** - Track and visualize event history over time
-4. **Storm Tracking** - Show hurricane/tornado paths with historical positions
-5. **User Preferences** - Save settings (severity, visible layers, theme)
-6. **Mobile Optimization** - Improve touch interactions and performance
-7. **Offline Mode** - Cache data for offline viewing with service workers
-8. **Export Functionality** - Export event data (CSV/JSON) or screenshots
-9. **Backend Proxy** - Dedicated proxy server to eliminate CORS issues
-10. **Unit Tests** - Add comprehensive test coverage with Vitest
-11. **Storybook** - Component documentation and playground
-12. **Time Slider** - Scrub through historical earthquake/weather data
-13. **Multiple Map Layers** - Toggle between different map tile styles
-14. **Altitude Visualization** - 3D height based on earthquake depth
-15. **Performance Profiling** - Optimize for lower-end devices
+1. **Autopilot Wander Mode** - Probabilistic event exploration based on severity
+2. **Autopilot ISS Mode** - Real-time ISS tracking with beacon effects
+3. **WebSocket Updates** - Real-time data streaming instead of polling
+4. **Historical Data** - Track and visualize event history over time
+5. **Storm Tracking** - Show hurricane/tornado paths with historical positions
+6. **User Preferences** - Save settings (severity, visible layers, theme)
+7. **Mobile Optimization** - Improve touch interactions and performance
+8. **Offline Mode** - Cache data for offline viewing with service workers
+9. **Export Functionality** - Export event data (CSV/JSON) or screenshots
+10. **Backend Proxy** - Dedicated proxy server to eliminate CORS issues
+11. **Unit Tests** - Add comprehensive test coverage with Vitest
+12. **Storybook** - Component documentation and playground
+13. **Time Slider** - Scrub through historical earthquake/weather data
+14. **Multiple Globe Themes** - Toggle between different tile styles and skyboxes
+15. **Altitude Visualization** - 3D height based on earthquake depth
+16. **Performance Profiling** - Optimize for lower-end devices
+17. **Entity Clustering** - Group nearby events when zoomed out
+18. **Improved Selection UX** - Better click handling and camera movement
 
 ---
 
@@ -867,4 +973,5 @@ This project is open source and available for educational and demonstration purp
 **Last Updated**: January 2026  
 **Version**: 5.0.0 (3D Globe with Cesium.js)  
 **Status**: Production Ready  
+**Recent Changes**: Dark mode, autopilot rotate mode, dynamic marker scaling, camera height indicator  
 **Milestone**: Complete migration from 2D Leaflet to 3D Cesium globe visualization!
