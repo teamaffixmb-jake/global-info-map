@@ -72,7 +72,7 @@ function App() {
     const [windRateLimited, setWindRateLimited] = useState<boolean>(false); // Wind API rate limit warning
     const [cameraHeight, setCameraHeight] = useState<number>(0); // Camera altitude in meters
     const [autopilotEnabled, setAutopilotEnabled] = useState<boolean>(false); // Autopilot/screensaver mode
-    const [autopilotMode, _setAutopilotMode] = useState<'rotate' | 'wander' | 'iss'>('rotate'); // Current autopilot submode - _setAutopilotMode will be used for mode switching later
+    const [autopilotMode, setAutopilotMode] = useState<'rotate' | 'wander' | 'iss'>('rotate'); // Current autopilot submode
     
     // Store marker manager instance
     const markerManagerRef = useRef<CesiumMarkerManager | null>(null);
@@ -349,6 +349,48 @@ function App() {
                             </span>
                         </label>
                     </div>
+                    
+                    {/* Autopilot Mode Selector */}
+                    {autopilotEnabled && (
+                        <div className="autopilot-modes">
+                            <label className="autopilot-mode-label">
+                                <input 
+                                    type="radio" 
+                                    name="autopilot-mode"
+                                    checked={autopilotMode === 'rotate'}
+                                    onChange={() => setAutopilotMode('rotate')}
+                                    className="autopilot-mode-radio"
+                                />
+                                <span className="autopilot-mode-text">
+                                    🔄 Rotate
+                                </span>
+                            </label>
+                            <label className="autopilot-mode-label">
+                                <input 
+                                    type="radio" 
+                                    name="autopilot-mode"
+                                    checked={autopilotMode === 'wander'}
+                                    onChange={() => setAutopilotMode('wander')}
+                                    className="autopilot-mode-radio"
+                                />
+                                <span className="autopilot-mode-text">
+                                    🎲 Wander
+                                </span>
+                            </label>
+                            <label className="autopilot-mode-label">
+                                <input 
+                                    type="radio" 
+                                    name="autopilot-mode"
+                                    checked={autopilotMode === 'iss'}
+                                    onChange={() => setAutopilotMode('iss')}
+                                    className="autopilot-mode-radio"
+                                />
+                                <span className="autopilot-mode-text">
+                                    🛰️ ISS
+                                </span>
+                            </label>
+                        </div>
+                    )}
                     
                     {/* Loading Status Indicator */}
                     {loadingStatus && (
