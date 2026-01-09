@@ -557,7 +557,7 @@ function App() {
         }
     }, [autoSwitchEnabled, autopilotEnabled]);
 
-    // Auto-switch between modes every 30 seconds
+    // Auto-switch between modes at random intervals (30s - 3min)
     useEffect(() => {
         if (!autopilotEnabled || !autoSwitchEnabled) {
             return;
@@ -565,22 +565,31 @@ function App() {
 
         console.log('🔀 Auto-switch mode activated');
         
+        let switchTimeout: number | null = null;
+        
         const switchMode = () => {
             const modes: ('rotate' | 'wander' | 'iss')[] = ['rotate', 'wander', 'iss'];
             const randomMode = modes[Math.floor(Math.random() * modes.length)];
             console.log(`🔀 Auto-switching to mode: ${randomMode}`);
             setAutopilotMode(randomMode);
+            
+            // Schedule next switch with random interval (30s to 3min)
+            const minDelay = 30000;  // 30 seconds
+            const maxDelay = 180000; // 3 minutes
+            const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+            console.log(`⏱️ Next auto-switch in ${(randomDelay / 1000).toFixed(0)} seconds`);
+            
+            switchTimeout = window.setTimeout(switchMode, randomDelay);
         };
 
         // Switch immediately on activation
         switchMode();
-        
-        // Then switch every 30 seconds
-        const switchInterval = setInterval(switchMode, 30000);
 
         return () => {
-            console.log('🧹 Clearing auto-switch interval');
-            clearInterval(switchInterval);
+            console.log('🧹 Clearing auto-switch timeout');
+            if (switchTimeout !== null) {
+                clearTimeout(switchTimeout);
+            }
         };
     }, [autopilotEnabled, autoSwitchEnabled]);
 
