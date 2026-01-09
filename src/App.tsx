@@ -67,6 +67,7 @@ function App() {
     const [showSimulatedData, setShowSimulatedData] = useState<boolean>(false); // Toggle for sample data
     const [loadingStatus, setLoadingStatus] = useState<string>(''); // Current loading/rendering status
     const [windRateLimited, setWindRateLimited] = useState<boolean>(false); // Wind API rate limit warning
+    const [cameraHeight, setCameraHeight] = useState<number>(0); // Camera altitude in meters
     
     // Store marker manager instance
     const markerManagerRef = useRef<CesiumMarkerManager | null>(null);
@@ -273,7 +274,17 @@ function App() {
                         severityThreshold={severityThreshold}
                         setMapController={setMapController}
                         markerManagerRef={markerManagerRef}
+                        onCameraHeightChange={setCameraHeight}
                     />
+                    
+                    {/* Camera Height Indicator */}
+                    <div className="camera-height-indicator">
+                        📏 Camera: {cameraHeight < 1000 
+                            ? `${Math.round(cameraHeight)}m`
+                            : cameraHeight < 1000000
+                            ? `${(cameraHeight / 1000).toFixed(1)}km`
+                            : `${(cameraHeight / 1000000).toFixed(2)}Mm`}
+                    </div>
                     
                     {/* Loading Status Indicator */}
                     {loadingStatus && (

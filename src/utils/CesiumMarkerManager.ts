@@ -8,7 +8,7 @@
  * 4. Logging events based on severity threshold
  */
 
-import { Viewer, Entity, Cartesian3, Color, ColorMaterialProperty, PolygonHierarchy, Cartesian2, PolylineArrowMaterialProperty } from 'cesium';
+import { Viewer, Entity, Cartesian3, Color, ColorMaterialProperty, PolygonHierarchy, Cartesian2, PolylineArrowMaterialProperty, ConstantProperty, ConstantPositionProperty } from 'cesium';
 import { DataPoint, DataSourceType } from '../models/DataPoint';
 import { RawWind } from './converters';
 import { getMagnitudeColor, getMagnitudeRadius, formatAge, getVolcanicAlertColor, getVolcanicSize, getHurricaneColor, getHurricaneSize } from './helpers';
@@ -38,6 +38,7 @@ export class CesiumMarkerManager {
     private entities: Map<string, EntityEntry>;
     private loggedEventIds: Set<string>;
     private streamlineEntities: Entity[];
+    private cameraScaleFactor: number = 1.0;
 
     constructor(viewer: Viewer, addEventCallback: AddEventCallback | null = null, severityThreshold: number = 1) {
         this.viewer = viewer;
@@ -46,6 +47,82 @@ export class CesiumMarkerManager {
         this.entities = new Map();
         this.loggedEventIds = new Set();
         this.streamlineEntities = [];
+        
+        // Listen to camera changes to update marker sizes
+        this.setupCameraListener();
+    }
+    
+    /**
+     * Setup camera listener with linear scaling and max cap
+     */
+    private setupCameraListener(): void {
+        this.viewer.camera.changed.addEventListener(() => {
+            const cameraHeight = this.viewer.camera.positionCartographic.height;
+            
+            // Linear scaling below 7M meters, constant size above
+            // This makes circles appear constant visual size as you zoom in
+            // But prevents them from growing too large when zoomed out globally
+            
+            const minHeight = 10; // 10 meters minimum
+            const capHeight = 7000000; // 7M meters - freeze size above this
+            const normalizedHeight = Math.max(minHeight, cameraHeight);
+            
+            // Linear scale with cap at 7M meters
+            // Using a much smaller divisor to keep circles reasonable at global view
+            // At 10m: scale = 0.000003 (tiny circles ~45m)
+            // At 1,000m: scale = 0.0003 (circles ~4.5km)
+            // At 100,000m: scale = 0.03 (circles ~450km)
+            // At 7,000,000m: scale = 2.1 (circles ~315km - perfect for global view)
+            // At 20,000,000m: scale = 2.1 (capped - same as 7M)
+            const linearScale = normalizedHeight / 3333333;
+            this.cameraScaleFactor = Math.min(linearScale, capHeight / 3333333);
+            
+            // Update all existing entities
+            this.updateEntitySizes();
+        });
+    }
+    
+    /**
+     * Update all entity sizes based on current camera scale
+     */
+    private updateEntitySizes(): void {
+        this.entities.forEach((entry) => {
+            const dataPoint = entry.dataPoint;
+            
+            if (dataPoint.type === 'earthquake') {
+                const metadata = dataPoint.metadata as any;
+                const baseRadius = getMagnitudeRadius(metadata.magnitude);
+                const radiusMeters = baseRadius * 10000 * this.cameraScaleFactor;
+                
+                if (entry.entity.ellipse) {
+                    entry.entity.ellipse.semiMinorAxis = new ConstantProperty(radiusMeters);
+                    entry.entity.ellipse.semiMajorAxis = new ConstantProperty(radiusMeters);
+                }
+                
+                // Update time label offset
+                if (entry.timeLabel && entry.timeLabel.position) {
+                    const offsetMeters = radiusMeters + 20000 * this.cameraScaleFactor;
+                    entry.timeLabel.position = new ConstantPositionProperty(Cartesian3.fromDegrees(
+                        dataPoint.lon + (offsetMeters / 111320),
+                        dataPoint.lat
+                    ));
+                }
+            } else if (dataPoint.type === 'volcano') {
+                const metadata = dataPoint.metadata as any;
+                const alertLevel = metadata.alertLevel || 'normal';
+                const size = getVolcanicSize(alertLevel);
+                const sizeMeters = size * 10000 * this.cameraScaleFactor;
+                const degreeOffset = sizeMeters / 111320;
+                
+                if (entry.entity.polygon) {
+                    entry.entity.polygon.hierarchy = new ConstantProperty(new PolygonHierarchy([
+                        Cartesian3.fromDegrees(dataPoint.lon, dataPoint.lat + degreeOffset),
+                        Cartesian3.fromDegrees(dataPoint.lon - degreeOffset * 0.866, dataPoint.lat - degreeOffset * 0.5),
+                        Cartesian3.fromDegrees(dataPoint.lon + degreeOffset * 0.866, dataPoint.lat - degreeOffset * 0.5)
+                    ]));
+                }
+            }
+        });
     }
 
     /**
@@ -193,8 +270,9 @@ export class CesiumMarkerManager {
         const colorHex = getMagnitudeColor(mag);
         const color = Color.fromCssColorString(colorHex);
         
-        // Convert pixel radius to meters (reduced for better visibility)
-        const radiusMeters = radius * 8000;
+        // Convert pixel radius to meters - base size that will scale with camera
+        // Using smaller multiplier to prevent oversized circles
+        const radiusMeters = radius * 10000;
         
         // Create the main ellipse entity
         const entity = new Entity({
@@ -222,7 +300,7 @@ export class CesiumMarkerManager {
         const timeText = this.formatTimeAgo(age);
         
         // Calculate offset for time label (to the right of the circle)
-        const offsetMeters = radiusMeters + 50000; // Add 50km offset from edge
+        const offsetMeters = radiusMeters + 20000; // Add offset from edge
         
         const timeLabel = new Entity({
             id: `${dataPoint.id}-time-label`,
@@ -263,7 +341,7 @@ export class CesiumMarkerManager {
 
         // Use a triangle polygon to represent volcano
         // Create triangle vertices around the volcano position
-        const sizeMeters = size * 8000; // Convert pixel size to meters (reduced for better visibility)
+        const sizeMeters = size * 10000; // Base size that will scale with camera to maintain constant visual appearance
         const degreeOffset = sizeMeters / 111320; // Approximate degree offset
 
         const entity = new Entity({
@@ -319,8 +397,7 @@ export class CesiumMarkerManager {
                 fillColor: color,
                 style: 0, // FILL
                 pixelOffset: new Cartesian2(0, 0),
-                disableDepthTestDistance: Number.POSITIVE_INFINITY,
-                // Rotation is not directly supported in labels, but we can simulate with updates
+                disableDepthTestDistance: Number.POSITIVE_INFINITY
             },
             description: `
                 <strong>${dataPoint.emoji} ${dataPoint.title}</strong><br>

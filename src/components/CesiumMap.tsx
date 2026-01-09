@@ -23,6 +23,7 @@ interface CesiumMapProps {
     severityThreshold: number;
     setMapController: (controller: MapController) => void;
     markerManagerRef: MutableRefObject<CesiumMarkerManager | null>;
+    onCameraHeightChange?: (height: number) => void;
 }
 
 function CesiumMap({ 
@@ -30,7 +31,8 @@ function CesiumMap({
     addEvent, 
     severityThreshold, 
     setMapController,
-    markerManagerRef
+    markerManagerRef,
+    onCameraHeightChange
 }: CesiumMapProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const viewerRef = useRef<Viewer | null>(null);
@@ -102,6 +104,17 @@ function CesiumMap({
                         }
                     }
                 });
+
+                // Setup camera height tracker
+                if (onCameraHeightChange) {
+                    viewer.camera.changed.addEventListener(() => {
+                        const height = viewer.camera.positionCartographic.height;
+                        onCameraHeightChange(height);
+                    });
+                    
+                    // Set initial height
+                    onCameraHeightChange(viewer.camera.positionCartographic.height);
+                }
 
             } catch (error) {
                 console.error('Error initializing Cesium:', error);
