@@ -204,6 +204,7 @@ function CesiumMap({
                                     complete: () => {
                                         // Only start tracking if ISS mode is still active
                                         if (issTrackingActiveRef.current) {
+                                            viewer.selectedEntity = issEntity; // Show green crosshair
                                             viewer.trackedEntity = issEntity;
                                             console.log('🛰️ ISS tracking started with orbit view distance');
                                             
@@ -221,6 +222,7 @@ function CesiumMap({
                             } else {
                                 // If position not available, just track immediately with offset
                                 if (issTrackingActiveRef.current) {
+                                    viewer.selectedEntity = issEntity; // Show green crosshair
                                     viewer.trackedEntity = issEntity;
                                     console.log('🛰️ ISS tracking started');
                                     
@@ -246,6 +248,11 @@ function CesiumMap({
                         if (rotationIntervalRef.current) {
                             clearInterval(rotationIntervalRef.current);
                             rotationIntervalRef.current = null;
+                        }
+                        
+                        // Clear selection (green crosshair)
+                        if (viewer.selectedEntity) {
+                            viewer.selectedEntity = undefined;
                         }
                         
                         // Clear tracked entity
