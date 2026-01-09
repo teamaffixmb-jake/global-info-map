@@ -95,10 +95,29 @@ body {
     color: #c7d2fe;
 }
 
-/* Autopilot Mode Selector - positioned right below autopilot toggle */
-.autopilot-modes {
+/* Auto-Switch Toggle - positioned right below autopilot toggle */
+.auto-switch-toggle {
     position: absolute;
     top: 76px;
+    left: 10px;
+    z-index: 1000;
+    background: rgba(17, 24, 39, 0.9);
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.375rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    transition: all 0.2s ease;
+}
+
+.auto-switch-toggle:hover {
+    border-color: rgba(99, 102, 241, 0.6);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+/* Autopilot Mode Selector - positioned right below auto-switch toggle */
+.autopilot-modes {
+    position: absolute;
+    top: 109px;
     left: 10px;
     z-index: 1000;
     background: rgba(17, 24, 39, 0.9);
@@ -159,7 +178,7 @@ body {
 /* Loading Status Indicator - positioned below autopilot modes */
 .loading-status {
     position: absolute;
-    top: 176px;
+    top: 209px;
     left: 10px;
     z-index: 1000;
     background: rgba(17, 24, 39, 0.95);
@@ -177,7 +196,7 @@ body {
 /* Wind Rate Limit Warning - positioned below loading status */
 .rate-limit-warning {
     position: absolute;
-    top: 226px;
+    top: 259px;
     left: 10px;
     z-index: 1001;
     background: rgba(220, 38, 38, 0.95);

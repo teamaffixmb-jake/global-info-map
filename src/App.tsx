@@ -75,6 +75,7 @@ function App() {
     const [cameraHeight, setCameraHeight] = useState<number>(0); // Camera altitude in meters
     const [autopilotEnabled, setAutopilotEnabled] = useState<boolean>(false); // Autopilot/screensaver mode
     const [autopilotMode, setAutopilotMode] = useState<'rotate' | 'wander' | 'iss'>('rotate'); // Current autopilot submode
+    const [autoSwitchEnabled, setAutoSwitchEnabled] = useState<boolean>(false); // Auto-switch between modes
     
     // Store marker manager instance
     const markerManagerRef = useRef<CesiumMarkerManager | null>(null);
@@ -549,6 +550,40 @@ function App() {
         };
     }, [autopilotEnabled, autopilotMode, mapController]);
 
+    // Enable autopilot when auto-switch is enabled
+    useEffect(() => {
+        if (autoSwitchEnabled && !autopilotEnabled) {
+            setAutopilotEnabled(true);
+        }
+    }, [autoSwitchEnabled, autopilotEnabled]);
+
+    // Auto-switch between modes every 30 seconds
+    useEffect(() => {
+        if (!autopilotEnabled || !autoSwitchEnabled) {
+            return;
+        }
+
+        console.log('🔀 Auto-switch mode activated');
+        
+        const switchMode = () => {
+            const modes: ('rotate' | 'wander' | 'iss')[] = ['rotate', 'wander', 'iss'];
+            const randomMode = modes[Math.floor(Math.random() * modes.length)];
+            console.log(`🔀 Auto-switching to mode: ${randomMode}`);
+            setAutopilotMode(randomMode);
+        };
+
+        // Switch immediately on activation
+        switchMode();
+        
+        // Then switch every 30 seconds
+        const switchInterval = setInterval(switchMode, 30000);
+
+        return () => {
+            console.log('🧹 Clearing auto-switch interval');
+            clearInterval(switchInterval);
+        };
+    }, [autopilotEnabled, autoSwitchEnabled]);
+
     // Calculate counts by type
     const getCountsByType = (): Record<string, number> => {
         const counts: Record<string, number> = {};
@@ -604,8 +639,23 @@ function App() {
                         </label>
                     </div>
                     
+                    {/* Auto-Switch Toggle */}
+                    <div className="auto-switch-toggle">
+                        <label className="autopilot-label">
+                            <input 
+                                type="checkbox" 
+                                checked={autoSwitchEnabled}
+                                onChange={(e) => setAutoSwitchEnabled(e.target.checked)}
+                                className="autopilot-checkbox"
+                            />
+                            <span className="autopilot-text">
+                                Auto-Switch
+                            </span>
+                        </label>
+                    </div>
+                    
                     {/* Autopilot Mode Selector */}
-                    {autopilotEnabled && (
+                    {autopilotEnabled && !autoSwitchEnabled && (
                         <div className="autopilot-modes">
                             <label className="autopilot-mode-label">
                                 <input 
