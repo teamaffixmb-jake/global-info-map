@@ -68,6 +68,7 @@ function App() {
     const [loadingStatus, setLoadingStatus] = useState<string>(''); // Current loading/rendering status
     const [windRateLimited, setWindRateLimited] = useState<boolean>(false); // Wind API rate limit warning
     const [cameraHeight, setCameraHeight] = useState<number>(0); // Camera altitude in meters
+    const [autopilotEnabled, setAutopilotEnabled] = useState<boolean>(false); // Autopilot/screensaver mode
     
     // Store marker manager instance
     const markerManagerRef = useRef<CesiumMarkerManager | null>(null);
@@ -284,6 +285,21 @@ function App() {
                             : cameraHeight < 1000000
                             ? `${(cameraHeight / 1000).toFixed(1)}km`
                             : `${(cameraHeight / 1000000).toFixed(2)}Mm`}
+                    </div>
+                    
+                    {/* Autopilot Toggle */}
+                    <div className="autopilot-toggle">
+                        <label className="autopilot-label">
+                            <input 
+                                type="checkbox" 
+                                checked={autopilotEnabled}
+                                onChange={(e) => setAutopilotEnabled(e.target.checked)}
+                                className="autopilot-checkbox"
+                            />
+                            <span className="autopilot-text">
+                                Autopilot
+                            </span>
+                        </label>
                     </div>
                     
                     {/* Loading Status Indicator */}
