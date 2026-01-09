@@ -32,6 +32,7 @@ interface EntityEntry {
     orbitPathA?: Entity; // Optional orbit visualization for ISS (buffer A)
     orbitPathB?: Entity; // Optional orbit visualization for ISS (buffer B)
     currentOrbit?: 'A' | 'B'; // Track which orbit buffer was created most recently
+    previousPosition?: Cartesian3; // Track previous ISS position to compute velocity vector
 }
 
 export class CesiumMarkerManager {
@@ -224,7 +225,8 @@ export class CesiumMarkerManager {
                 const metadata = dataPoint.metadata as any;
                 const orbitPathB = this.createISSOrbitPath(dataPoint.lat, (metadata.altitude || 400) * 1000, 'B');
                 this.viewer.entities.add(orbitPathB);
-                this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPathA, orbitPathB, currentOrbit: 'A' });
+                const issPosition = Cartesian3.fromDegrees(dataPoint.lon, dataPoint.lat, (metadata.altitude || 400) * 1000);
+                this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPathA, orbitPathB, currentOrbit: 'A', previousPosition: issPosition });
             } else {
                 this.entities.set(dataPoint.id, { entity, dataPoint, timeLabel, orbitPathA, currentOrbit: 'A' });
             }
@@ -239,7 +241,8 @@ export class CesiumMarkerManager {
                 const metadata = dataPoint.metadata as any;
                 const orbitPathB = this.createISSOrbitPath(dataPoint.lat, (metadata.altitude || 400) * 1000, 'B');
                 this.viewer.entities.add(orbitPathB);
-                this.entities.set(dataPoint.id, { entity, dataPoint, orbitPathA, orbitPathB, currentOrbit: 'A' });
+                const issPosition = Cartesian3.fromDegrees(dataPoint.lon, dataPoint.lat, (metadata.altitude || 400) * 1000);
+                this.entities.set(dataPoint.id, { entity, dataPoint, orbitPathA, orbitPathB, currentOrbit: 'A', previousPosition: issPosition });
             } else {
                 this.entities.set(dataPoint.id, { entity, dataPoint, orbitPathA, currentOrbit: 'A' });
             }
@@ -279,6 +282,12 @@ export class CesiumMarkerManager {
                 Velocity: ${metadata.velocity} km/h
             `);
             
+            // Compute velocity vector from position change if we have a previous position
+            let velocityVector: Cartesian3 | undefined;
+            if (existing.previousPosition) {
+                velocityVector = Cartesian3.subtract(newPosition, existing.previousPosition, new Cartesian3());
+            }
+            
             // Update orbit path using double-buffering to prevent flicker
             // Modify the OLDEST orbit in place rather than deleting/creating
             if (existing.orbitPathA || existing.orbitPathB) {
@@ -286,16 +295,9 @@ export class CesiumMarkerManager {
                 const orbitToUpdate = existing.currentOrbit === 'A' ? 'B' : 'A';
                 const orbitEntity = orbitToUpdate === 'A' ? existing.orbitPathA : existing.orbitPathB;
                 
-                if (orbitEntity && orbitEntity.polyline) {
-                    // Regenerate orbit positions with new latitude
-                    const positions: Cartesian3[] = [];
-                    const segments = 360;
-                    
-                    for (let i = 0; i <= segments; i++) {
-                        const longitude = (i / segments) * 360 - 180;
-                        const position = Cartesian3.fromDegrees(longitude, dataPoint.lat, altitude);
-                        positions.push(position);
-                    }
+                if (orbitEntity && orbitEntity.polyline && velocityVector) {
+                    // Regenerate orbit based on current position and velocity
+                    const positions = this.computeOrbitFromVelocity(newPosition, velocityVector, altitude);
                     
                     // Update positions in place - set the property value directly
                     orbitEntity.polyline.positions = new ConstantProperty(positions);
@@ -307,13 +309,15 @@ export class CesiumMarkerManager {
                     dataPoint,
                     orbitPathA: existing.orbitPathA,
                     orbitPathB: existing.orbitPathB,
-                    currentOrbit: orbitToUpdate
+                    currentOrbit: orbitToUpdate,
+                    previousPosition: newPosition
                 });
             } else {
                 // No orbit exists yet (shouldn't happen), just update the dataPoint
                 this.entities.set(dataPoint.id, { 
                     entity: existing.entity, 
-                    dataPoint
+                    dataPoint,
+                    previousPosition: newPosition
                 });
             }
             
@@ -598,15 +602,68 @@ export class CesiumMarkerManager {
     }
 
     /**
+     * Compute orbit circle from current position and velocity vector
+     */
+    private computeOrbitFromVelocity(position: Cartesian3, velocityVector: Cartesian3, altitude: number): Cartesian3[] {
+        const positions: Cartesian3[] = [];
+        const segments = 360;
+        
+        // Calculate orbital radius
+        const earthRadius = 6371000; // meters
+        const orbitalRadius = earthRadius + altitude;
+        
+        // Get the radial vector (from Earth center to ISS)
+        const radialVector = Cartesian3.normalize(position, new Cartesian3());
+        
+        // Normalize velocity vector
+        const velocityNormalized = Cartesian3.normalize(velocityVector, new Cartesian3());
+        
+        // The orbit normal is perpendicular to both position and velocity
+        // normal = position × velocity
+        const normal = Cartesian3.cross(radialVector, velocityNormalized, new Cartesian3());
+        Cartesian3.normalize(normal, normal);
+        
+        // Create two perpendicular vectors in the orbital plane
+        // tangent1 is the velocity direction
+        const tangent1 = velocityNormalized;
+        
+        // tangent2 is perpendicular to velocity in the orbital plane
+        // tangent2 = normal × velocity
+        const tangent2 = Cartesian3.cross(normal, tangent1, new Cartesian3());
+        Cartesian3.normalize(tangent2, tangent2);
+        
+        // Generate circle points in the orbital plane
+        for (let i = 0; i <= segments; i++) {
+            const theta = (i / segments) * 2 * Math.PI;
+            
+            // Point on circle: radius * (cos(theta) * tangent1 + sin(theta) * tangent2)
+            const point = new Cartesian3();
+            
+            Cartesian3.multiplyByScalar(tangent1, Math.cos(theta) * orbitalRadius, point);
+            const temp = new Cartesian3();
+            Cartesian3.multiplyByScalar(tangent2, Math.sin(theta) * orbitalRadius, temp);
+            Cartesian3.add(point, temp, point);
+            
+            positions.push(point);
+        }
+        
+        return positions;
+    }
+
+    /**
      * Create a circular orbit path at ISS altitude
      */
     private createISSOrbitPath(currentLat: number, altitude: number, buffer?: 'A' | 'B'): Entity {
         // Create positions for a circular orbit
-        // Approximate orbit as a circle at the current latitude
+        // Initially create a horizontal circle (will be updated with velocity data)
         const positions: Cartesian3[] = [];
-        const segments = 360; // One point per degree
+        const segments = 360;
         
-        // Create circle around Earth at ISS altitude and approximate latitude
+        // Calculate orbital radius
+        const earthRadius = 6371000;
+        const orbitalRadius = earthRadius + altitude;
+        
+        // Create simple circle
         for (let i = 0; i <= segments; i++) {
             const longitude = (i / segments) * 360 - 180;
             const position = Cartesian3.fromDegrees(longitude, currentLat, altitude);
