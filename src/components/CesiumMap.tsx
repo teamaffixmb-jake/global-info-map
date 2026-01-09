@@ -1,10 +1,12 @@
 import { useEffect, useRef, MutableRefObject } from 'react';
 import { 
     Viewer, 
-    Cartesian3, 
+    Cartesian3,
+    Cartographic,
     Ion,
     Color,
-    UrlTemplateImageryProvider
+    UrlTemplateImageryProvider,
+    Math as CesiumMath
 } from 'cesium';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { CesiumMarkerManager, AddEventCallback } from '../utils/CesiumMarkerManager';
@@ -18,6 +20,7 @@ interface MapController {
     startRotation: () => void;
     stopRotation: () => void;
     resetCamera: () => void;
+    adjustAltitudeForRotation: () => void;
     startISSTracking: () => void;
     stopISSTracking: () => void;
 }
@@ -151,6 +154,29 @@ function CesiumMap({
                             }
                         });
                         console.log('🌍 Camera reset to global view (8Mm altitude)');
+                    },
+                    adjustAltitudeForRotation: () => {
+                        // Clear any tracked entity first (e.g., ISS tracking)
+                        if (viewer.trackedEntity) {
+                            viewer.trackedEntity = undefined;
+                        }
+                        
+                        // Get current camera position
+                        const currentPosition = viewer.camera.positionCartographic;
+                        const currentLon = CesiumMath.toDegrees(currentPosition.longitude);
+                        const currentLat = CesiumMath.toDegrees(currentPosition.latitude);
+                        
+                        // Fly to same location but at 8Mm altitude
+                        viewer.camera.flyTo({
+                            destination: Cartesian3.fromDegrees(currentLon, currentLat, 8000000),
+                            duration: 2.0,
+                            orientation: {
+                                heading: 0,
+                                pitch: -Math.PI / 2, // Look straight down
+                                roll: 0
+                            }
+                        });
+                        console.log(`🔄 Adjusting altitude for rotation at (${currentLon.toFixed(2)}°, ${currentLat.toFixed(2)}°)`);
                     },
                     startISSTracking: () => {
                         // Get ISS entity from marker manager
