@@ -127,23 +127,15 @@ function App() {
         const prevValue = prevVolcanoLoadingRef.current;
         prevVolcanoLoadingRef.current = volcanoLoading;
         
-        console.log(`[Volcano Fade] prevValue=${prevValue}, volcanoLoading=${volcanoLoading}`);
-        
         if (prevValue && !volcanoLoading) {
             // Status just transitioned from true to false, trigger fade-out
-            console.log('[Volcano Fade] Starting fade-out (3s)');
             setVolcanoFading(true);
             const timer = setTimeout(() => {
-                console.log('[Volcano Fade] Fade-out complete, hiding element');
                 setVolcanoFading(false);
-            }, 3000) as unknown as number; // Match the CSS transition duration
-            return () => {
-                console.log('[Volcano Fade] Cleanup: clearing timer');
-                clearTimeout(timer);
-            };
+            }, 3000) as unknown as number; // Match the CSS animation duration
+            return () => clearTimeout(timer);
         } else if (volcanoLoading) {
             // Status is active, ensure it's not fading
-            console.log('[Volcano Fade] Loading active, stopping any fade');
             setVolcanoFading(false);
         }
     }, [volcanoLoading]);
@@ -153,23 +145,15 @@ function App() {
         const prevValue = prevLoadingStatusRef.current;
         prevLoadingStatusRef.current = loadingStatus;
         
-        console.log(`[General Fade] prevValue="${prevValue}", loadingStatus="${loadingStatus}"`);
-        
         if (prevValue && !loadingStatus) {
             // Status just transitioned from non-empty to empty, trigger fade-out
-            console.log('[General Fade] Starting fade-out (3s)');
             setGeneralFading(true);
             const timer = setTimeout(() => {
-                console.log('[General Fade] Fade-out complete, hiding element');
                 setGeneralFading(false);
-            }, 3000) as unknown as number; // Match the CSS transition duration
-            return () => {
-                console.log('[General Fade] Cleanup: clearing timer');
-                clearTimeout(timer);
-            };
+            }, 3000) as unknown as number; // Match the CSS animation duration
+            return () => clearTimeout(timer);
         } else if (loadingStatus) {
             // Status is active, ensure it's not fading
-            console.log('[General Fade] Loading active, stopping any fade');
             setGeneralFading(false);
         }
     }, [loadingStatus]);
@@ -379,10 +363,8 @@ function App() {
 
     const updateVolcanoData = useCallback(async () => {
         try {
-            console.log('[Volcano Update] Starting volcano fetch...');
             setVolcanoLoading(true);
             const volcanicResult = await fetchVolcanic();
-            console.log('[Volcano Update] Fetch complete, processing data...');
             const newVolcanoes = convertBatch(volcanicResult.data, volcanoToDataPoint);
             
             setDataPoints(prevPoints => {
@@ -401,7 +383,6 @@ function App() {
         } catch (error) {
             console.error('Error updating volcano data:', error);
         } finally {
-            console.log('[Volcano Update] Fetch complete, setting volcanoLoading=false');
             setVolcanoLoading(false);
         }
     }, []);
@@ -505,10 +486,10 @@ function App() {
     }, [updateEarthquakeData]);
 
     useEffect(() => {
-        // Volcanoes: Every 10 seconds (TESTING - verify severity change logging)
+        // Volcanoes: Every 2 minutes (slow-changing geological activity)
         const volcanoInterval = setInterval(() => {
             updateVolcanoData();
-        }, 10000);
+        }, 120000);
 
         return () => clearInterval(volcanoInterval);
     }, [updateVolcanoData]);
