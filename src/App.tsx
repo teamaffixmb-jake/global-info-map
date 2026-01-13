@@ -214,7 +214,7 @@ function App() {
             // Convert critical data to DataPoints
             let allDataPoints: DataPoint[] = [
                 ...convertBatch(eqResult.data, earthquakeToDataPoint),
-                ...(issResult.data ? [issToDataPoint(issResult.data)] : []),
+                ...(issResult.data ? [issToDataPoint(issResult.data)].filter(Boolean) : []),
                 ...convertBatch(volcanicResult.data, volcanoToDataPoint),
                 ...convertBatch(hurricaneResult.data, hurricaneToDataPoint)
             ];
@@ -316,18 +316,22 @@ function App() {
         try {
             const issResult = await fetchISS();
             
+            // Only process if we got real data (not null/undefined)
             if (issResult.data) {
                 const issDataPoint = issToDataPoint(issResult.data);
                 
-                // Update ISS in dataPoints
-                setDataPoints(prevPoints => {
-                    const withoutISS = prevPoints.filter(dp => dp.type !== 'iss');
-                    return [...withoutISS, issDataPoint];
-                });
-                
-                // Update entity in place (won't remove/recreate, maintains tracking)
-                if (markerManagerRef.current) {
-                    markerManagerRef.current.updateSingleEntity(issDataPoint);
+                // Only update if we got valid data
+                if (issDataPoint) {
+                    // Update ISS in dataPoints
+                    setDataPoints(prevPoints => {
+                        const withoutISS = prevPoints.filter(dp => dp.type !== 'iss');
+                        return [...withoutISS, issDataPoint];
+                    });
+                    
+                    // Update entity in place (won't remove/recreate, maintains tracking)
+                    if (markerManagerRef.current) {
+                        markerManagerRef.current.updateSingleEntity(issDataPoint);
+                    }
                 }
             }
         } catch (error) {
@@ -468,10 +472,10 @@ function App() {
 
     // Individual data source update intervals
     useEffect(() => {
-        // ISS: Every 1 second (fast-moving)
+        // ISS: Every 5 seconds (we have interpolation for smooth motion)
         const issInterval = setInterval(() => {
             updateISSData();
-        }, 1000);
+        }, 5000);
 
         return () => clearInterval(issInterval);
     }, [updateISSData]);

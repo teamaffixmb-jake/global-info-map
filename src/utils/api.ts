@@ -67,20 +67,6 @@ export function generateSampleEarthquakes(): RawEarthquake[] {
     return earthquakes;
 }
 
-let issOrbitPosition = Math.random() * Math.PI * 2;
-
-export function generateSampleISS(): RawISS {
-    issOrbitPosition += 0.004;
-    const inclination = 51.6 * Math.PI / 180;
-    
-    return {
-        lat: Math.sin(issOrbitPosition) * inclination * 180 / Math.PI,
-        lon: ((issOrbitPosition * 180 / Math.PI * 2) % 360) - 180,
-        altitude: 420,
-        velocity: 27600
-    };
-}
-
 export function generateSampleVolcanic(): RawVolcano[] {
     const volcanoes = [
         { lat: 19.4069, lon: -155.2834, name: 'Kilauea', elevation: 1247, country: 'Hawaii, USA' },
@@ -387,13 +373,34 @@ export async function fetchEarthquakes(): Promise<APIResponse<RawEarthquake[]>> 
     }
 }
 
-export async function fetchISS(): Promise<APIResponse<RawISS>> {
+export async function fetchISS(): Promise<APIResponse<RawISS | null>> {
     try {
+        console.log('🛰️ Fetching ISS data...');
         const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544', {
             method: 'GET',
             mode: 'cors'
         });
+        
+        // Check for rate limiting or other HTTP errors
+        if (!response.ok) {
+            if (response.status === 429) {
+                console.warn('ISS API rate limit exceeded - will retry on next interval');
+            } else {
+                console.warn(`ISS API returned status ${response.status}`);
+            }
+            return { success: false, data: null };
+        }
+        
         const data = await response.json();
+        
+        // Validate that we got the expected data structure
+        if (typeof data.latitude !== 'number' || typeof data.longitude !== 'number') {
+            console.warn('ISS API returned invalid data structure');
+            return { success: false, data: null };
+        }
+        
+        console.log(`✅ ISS data received: lat=${data.latitude.toFixed(2)}°, lon=${data.longitude.toFixed(2)}°, alt=${data.altitude.toFixed(0)}km`);
+        
         return {
             success: true,
             data: {
@@ -405,7 +412,7 @@ export async function fetchISS(): Promise<APIResponse<RawISS>> {
         };
     } catch (error) {
         console.error('Error fetching ISS:', error);
-        return { success: false, data: generateSampleISS() };
+        return { success: false, data: null };
     }
 }
 

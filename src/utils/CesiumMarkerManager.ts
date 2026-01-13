@@ -91,8 +91,9 @@ export class CesiumMarkerManager {
      * This is the RENDERING loop - updates visual position only
      */
     private interpolateISSPosition(): void {
-        if (!this.issInterpolationState.basePosition || !this.issInterpolationState.orbitalPlaneNormal) {
-            return; // No ISS data yet
+        if (!this.issInterpolationState.basePosition || !this.issInterpolationState.orbitalPlaneNormal ||
+            this.issInterpolationState.angularVelocity === 0) {
+            return; // No ISS data yet or velocity too low
         }
         
         // Find ISS entity
@@ -104,7 +105,7 @@ export class CesiumMarkerManager {
             }
         }
         
-        if (!issEntry) return;
+        if (!issEntry || !issEntry.entity) return;
         
         // Calculate time elapsed since last data update
         const now = Date.now();
@@ -151,8 +152,19 @@ export class CesiumMarkerManager {
         
         // Compute velocity vector from position change if we have a previous position
         let velocityVector: Cartesian3 | undefined;
+        let timeSinceLastUpdate = 5.0; // Default: ISS fetches every 5 seconds
+        
         if (existing.previousPosition) {
-            velocityVector = Cartesian3.subtract(newPosition, existing.previousPosition, new Cartesian3());
+            // Get actual time since last update for more accurate velocity calculation
+            if (this.issInterpolationState.lastUpdateTime > 0) {
+                timeSinceLastUpdate = (Date.now() - this.issInterpolationState.lastUpdateTime) / 1000; // Convert to seconds
+            }
+            
+            // Calculate displacement
+            const displacement = Cartesian3.subtract(newPosition, existing.previousPosition, new Cartesian3());
+            
+            // velocityVector = displacement / time to get true velocity in m/s
+            velocityVector = Cartesian3.multiplyByScalar(displacement, 1.0 / timeSinceLastUpdate, new Cartesian3());
         }
         
         // Update orbital parameters for interpolation
@@ -161,8 +173,37 @@ export class CesiumMarkerManager {
             const orbitalRadius = earthRadius + altitude;
             
             // Calculate angular velocity (ω = v / r)
-            // velocityVector is displacement over 1 second, so magnitude is already in m/s
+            // velocityVector is now in m/s
             const velocityMagnitude = Cartesian3.magnitude(velocityVector);
+            
+            // Safety check: velocity must be above threshold to compute orbit
+            // ISS moves at ~7700 m/s, so 100 m/s is a reasonable minimum
+            if (velocityMagnitude < 100) {
+                // Velocity too small, skip orbit update but maintain basic state
+                existing.entity.position = new ConstantPositionProperty(newPosition);
+                
+                // Initialize interpolation state with minimal values to prevent null errors
+                if (!this.issInterpolationState.basePosition) {
+                    this.issInterpolationState = {
+                        basePosition: newPosition,
+                        angularVelocity: 0,
+                        orbitalPlaneNormal: new Cartesian3(0, 0, 1), // Default to north
+                        orbitalRadius: earthRadius + altitude,
+                        lastUpdateTime: Date.now()
+                    };
+                }
+                
+                this.entities.set(dataPoint.id, {
+                    entity: existing.entity,
+                    dataPoint,
+                    orbitPathA: existing.orbitPathA,
+                    orbitPathB: existing.orbitPathB,
+                    currentOrbit: existing.currentOrbit,
+                    previousPosition: newPosition
+                });
+                return;
+            }
+            
             const angularVelocity = velocityMagnitude / orbitalRadius; // radians per second
             
             // Get orbit normal (perpendicular to position and velocity)
@@ -187,7 +228,10 @@ export class CesiumMarkerManager {
                 
                 if (orbitEntity && orbitEntity.polyline) {
                     const positions = this.computeOrbitFromVelocity(newPosition, velocityVector, altitude);
-                    orbitEntity.polyline.positions = new ConstantProperty(positions);
+                    // Only update if we got valid positions
+                    if (positions.length > 0) {
+                        orbitEntity.polyline.positions = new ConstantProperty(positions);
+                    }
                 }
                 
                 // Update entity entry
@@ -726,6 +770,12 @@ export class CesiumMarkerManager {
         
         // Normalize velocity vector
         const velocityNormalized = Cartesian3.normalize(velocityVector, new Cartesian3());
+        
+        // Safety check: ensure normalized vectors are valid
+        if (isNaN(velocityNormalized.x) || isNaN(velocityNormalized.y) || isNaN(velocityNormalized.z)) {
+            console.warn('Invalid velocity vector, returning empty orbit');
+            return [];
+        }
         
         // The orbit normal is perpendicular to both position and velocity
         // normal = position × velocity

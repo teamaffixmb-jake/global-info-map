@@ -220,9 +220,16 @@ export function earthquakeToDataPoint(eq: RawEarthquake): DataPoint<EarthquakeMe
 /**
  * Convert ISS data to DataPoint
  */
-export function issToDataPoint(iss: RawISS): DataPoint<ISSMetadata> {
+export function issToDataPoint(iss: RawISS): DataPoint<ISSMetadata> | null {
     const id = 'iss'; // Only one ISS, so ID is just 'iss'
     const severity = getISSSeverity();
+    
+    // Validate that we have valid coordinates
+    if (typeof iss.lat !== 'number' || typeof iss.lon !== 'number' || 
+        isNaN(iss.lat) || isNaN(iss.lon)) {
+        console.warn('Invalid ISS coordinates:', iss);
+        return null;
+    }
     
     return new DataPoint(
         id,
